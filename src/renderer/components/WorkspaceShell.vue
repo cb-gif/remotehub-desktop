@@ -10,6 +10,7 @@ import SftpPane from './SftpPane.vue'
 import SplitPane from './SplitPane.vue'
 import { t } from '../i18n'
 import { tabDragScroll, tabWheelDelta } from '../tab-navigation'
+import { connectionLabelColor } from '../connection-color'
 import ConnectionIcon from './ConnectionIcon.vue'
 import UiIcon from './UiIcon.vue'
 import appIcon from '../../../assets/remotehub.png'
@@ -141,8 +142,7 @@ function statusText(tabId: string): string {
 }
 
 function tabColor(connectionId?: string): string | undefined {
-  const color = connectionFor(connectionId)?.color
-  return color && /^#[\da-f]{6}$/i.test(color) ? color : undefined
+  return connectionLabelColor(connections.connections, connectionId)
 }
 
 function openConnection(connection: Connection): void {
@@ -211,7 +211,6 @@ function resizeWorkspaceWithKeyboard(axis: 'x' | 'y', event: KeyboardEvent): voi
     <div class="tab-bar">
       <div ref="tabStrip" class="tab-strip" role="tablist" @wheel="scrollTabs" @dragover="dragOverStrip" @drop="dropTab($event)">
         <div v-for="tab in workspace.tabs" :key="tab.id" class="workspace-tab" :class="{ active: workspace.activeId === tab.id, secondary: workspace.secondaryIds.includes(tab.id), dragging: draggingTabId === tab.id, 'drop-before': tabDrop?.id === tab.id && !tabDrop.after, 'drop-after': tabDrop?.id === tab.id && tabDrop.after }" :style="{ '--tab-color': tabColor(tab.connectionId) }" role="tab" :data-tab-id="tab.id" :draggable="tab.closable" :title="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :aria-label="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :tabindex="workspace.activeId === tab.id ? 0 : -1" :aria-selected="workspace.activeId === tab.id" @click="workspace.activate(tab.id)" @keydown.enter="workspace.activate(tab.id)" @dragstart="startTabDrag($event, tab.id)" @dragover="dragOverTab($event, tab.id)" @drop.stop="dropTab($event, tab.id)" @dragend="finishTabDrag">
-          <span v-if="tabColor(tab.connectionId)" class="tab-asset-color" :title="t('colorLabel')" aria-hidden="true"></span>
           <span class="tab-icon"><UiIcon :name="iconFor(tab.type)" /></span><span v-if="tab.connectionId" class="tab-connection-status" :class="statusFor(tab.id)" :data-status="statusFor(tab.id)" role="img" :aria-label="statusText(tab.id)" :title="statusText(tab.id)"></span><span class="tab-title">{{ tab.title }}</span><span v-if="tab.pinned" class="tab-pin" :title="t('pinnedTab')"><UiIcon name="pin" :size="12" /></span><button v-else-if="tab.closable" class="tab-close" :aria-label="t('closeTab')" @click.stop="workspace.close(tab.id)"><UiIcon name="close" :size="14" /></button>
         </div>
         <button class="new-tab" :title="`${t('newTab')} (${shortcutModifier} T)`" :aria-label="t('newTab')" :disabled="!workspace.activeTab?.connectionId" @click="openActiveAgain"><UiIcon name="plus" /></button>
