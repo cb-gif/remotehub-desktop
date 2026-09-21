@@ -77,4 +77,24 @@ describe('Phase 5 transfer manager', () => {
     expect(manager.getItem(first.transferId)).toMatchObject({ status: 'completed', message: undefined })
     expect(manager.getItem(second.transferId).status).toBe('running')
   })
+
+  it('does not start queued jobs from a session while closing it', () => {
+    const manager = new TransferManager(() => undefined, 1)
+    const activeCancel = vi.fn()
+    const queuedStart = vi.fn(() => ({ pause: vi.fn(), resume: vi.fn(), cancel: vi.fn() }))
+    const otherStart = vi.fn(() => ({ pause: vi.fn(), resume: vi.fn(), cancel: vi.fn() }))
+    manager.enqueue({
+      sessionId: 'closing', direction: 'download', name: 'active', relativePath: 'active', total: 1,
+      start: () => ({ pause: vi.fn(), resume: vi.fn(), cancel: activeCancel })
+    })
+    manager.enqueue({ sessionId: 'closing', direction: 'download', name: 'queued', relativePath: 'queued', total: 1, start: queuedStart })
+    manager.enqueue({ sessionId: 'other', direction: 'download', name: 'other', relativePath: 'other', total: 1, start: otherStart })
+
+    manager.closeSession('closing')
+
+    expect(activeCancel).toHaveBeenCalledOnce()
+    expect(queuedStart).not.toHaveBeenCalled()
+    expect(otherStart).toHaveBeenCalledOnce()
+    expect(manager.list('closing')).toEqual([])
+  })
 })

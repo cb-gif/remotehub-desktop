@@ -55,4 +55,10 @@ describe('SSH connection-time password', () => {
     await expect(service.connect({ ...connection, username: ' ' }, { password: 'secret', savePassword: false })).rejects.toThrow('用户名')
     expect(client.connect).not.toHaveBeenCalled()
   })
+  it('rejects when the peer closes before the session is ready', async () => {
+    const { service, client } = setup()
+    const pending = service.connect(connection, { password: 'temporary', savePassword: false })
+    client.emit('end')
+    await expect(pending).rejects.toThrow('closed before it was ready')
+  })
 })

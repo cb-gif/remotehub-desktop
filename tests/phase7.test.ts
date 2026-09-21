@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { DatabaseService } from '../src/main/services/database'
 import type { DatabaseAdapter } from '../src/main/services/database/adapter'
@@ -19,6 +20,45 @@ describe('Phase 7 PostgreSQL adapter', () => {
     expect(mapPostgresError(Object.assign(new Error('denied'), { code: '28P01' })).code).toBe('DATABASE_AUTH_FAILED')
     expect(mapPostgresError(Object.assign(new Error('missing'), { code: '3D000' })).code).toBe('DATABASE_NOT_FOUND')
     expect(mapPostgresError(Object.assign(new Error('syntax'), { code: '42601' })).code).toBe('DATABASE_SQL_INVALID')
+  })
+
+  it('opens a fresh cursor when a result is explicitly refreshed', async () => {
+    const client = {
+      on: vi.fn(), end: vi.fn(async () => undefined),
+      query: vi.fn(async (query: string | { text: string }) => typeof query === 'object'
+        ? { rows: [[1]], fields: [{ name: 'value', dataTypeID: 23 }], rowCount: 1 }
+        : { rows: [], fields: [], rowCount: 0 })
+    }
+    const adapter = new PostgresAdapter(client as never, 'app', 'PostgreSQL 17')
+
+    await adapter.query({ sql: 'SELECT value FROM items', page: 0, restart: true })
+    await adapter.query({ sql: 'SELECT value FROM items', page: 0, restart: true })
+
+    expect(client.query.mock.calls.filter(([query]) => typeof query === 'string' && query.startsWith('DECLARE'))).toHaveLength(2)
+    adapter.close()
+  })
+
+  it('does not commit or roll back a user transaction when refreshing a cursor', async () => {
+    const connection = new EventEmitter()
+    const client = {
+      connection, on: vi.fn(), end: vi.fn(async () => undefined),
+      query: vi.fn(async (query: string | { text: string }) => typeof query === 'object'
+        ? { rows: [[1]], fields: [{ name: 'value', dataTypeID: 23 }], rowCount: 1 }
+        : { rows: [], fields: [], rowCount: 0 })
+    }
+    const adapter = new PostgresAdapter(client as never, 'app', 'PostgreSQL 17')
+    connection.emit('readyForQuery', { status: 'T' })
+
+    await adapter.query({ sql: 'SELECT value FROM items', page: 0, restart: true })
+    await adapter.query({ sql: 'SELECT value FROM items', page: 0, restart: true })
+
+    const commands = client.query.mock.calls.map(([query]) => typeof query === 'string' ? query : query.text)
+    expect(commands.filter((query) => query.startsWith('DECLARE'))).toHaveLength(2)
+    expect(commands).toContain('CLOSE "__remotehub_page"')
+    expect(commands).not.toContain('BEGIN READ ONLY')
+    expect(commands).not.toContain('COMMIT')
+    expect(commands).not.toContain('ROLLBACK')
+    adapter.close()
   })
 
   it('lists physical databases, marks system databases, and reconnects to switch database', async () => {

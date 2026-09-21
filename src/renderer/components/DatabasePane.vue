@@ -4,7 +4,7 @@ import { Compartment } from '@codemirror/state'
 import { MySQL, PostgreSQL, SQLite, sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { DatabaseCatalog, DatabaseCell, DatabaseColumn, DatabaseQueryResult, DatabaseTable } from '../../shared/database'
+import type { DatabaseAdapterType, DatabaseCatalog, DatabaseCell, DatabaseColumn, DatabaseQueryResult, DatabaseTable } from '../../shared/database'
 import { createSessionStatusTracker, type TabConnectionStatus } from '../../shared/connection-status'
 import { DATABASE_PAGE_SIZE, databaseCellDetail, databaseDisplayRows, databaseSqlLiteral, parseDatabaseCsv } from '../../shared/database'
 import { t } from '../i18n'
@@ -16,6 +16,7 @@ const connections = useConnectionStore()
 const connection = computed(() => connections.connections.find((item) => item.id === props.connectionId))
 const isPostgres = computed(() => connection.value?.databaseType === 'postgres')
 const isSqlite = computed(() => connection.value?.databaseType === 'sqlite')
+const databaseDialect = ref<DatabaseAdapterType | null>(null)
 type EditableRow = { values: DatabaseCell[]; original?: DatabaseCell[]; selected: boolean }
 
 const editorHost = ref<HTMLElement | null>(null)
@@ -71,7 +72,10 @@ const statusTracker = createSessionStatusTracker((status, message) => {
   connectionStatus = status
   emit('connection-status', status)
   if (message) errorMessage.value = message
-  if (status === 'error' || status === 'closed') sessionId.value = ''
+  if (status === 'error' || status === 'closed') {
+    sessionId.value = ''
+    databaseDialect.value = null
+  }
 })
 statusTracker.start()
 let columnResize: { key: string; startX: number; startWidth: number } | null = null
@@ -143,6 +147,7 @@ async function connect(): Promise<void> {
   errorMessage.value = ''
   const previousSession = sessionId.value
   sessionId.value = ''
+  databaseDialect.value = null
   statusTracker.start()
   if (previousSession) await window.api.database.disconnect(previousSession).catch(() => undefined)
   try {
@@ -154,6 +159,7 @@ async function connect(): Promise<void> {
     sessionId.value = connected.sessionId
     statusTracker.bind(connected.sessionId)
     if (!sessionId.value) return
+    databaseDialect.value = connected.adapter
     databases.value = await window.api.database.listDatabases(connected.sessionId)
     selectedDatabase.value = connected.database && visibleDatabases.value.some((item) => item.name === connected.database)
       ? connected.database
@@ -357,7 +363,7 @@ async function refreshResult(): Promise<void> {
   await runQuery(page, workspaceMode.value === 'table' && activeTable.value ? tableQuery(activeTable.value) : lastSql.value)
 }
 
-async function runQuery(page = 0, sqlOverride?: string): Promise<void> {
+async function runQuery(page = 0, sqlOverride?: string, restart = true): Promise<void> {
   if (!sessionId.value || running.value) return
   const targetTable = workspaceMode.value === 'table' ? activeTableName.value : ''
   const previousSql = targetTable ? tableLastSql.value[targetTable] : sqlLastSql.value
@@ -368,7 +374,7 @@ async function runQuery(page = 0, sqlOverride?: string): Promise<void> {
   running.value = true
   errorMessage.value = ''
   try {
-    const nextResult = await window.api.database.query(sessionId.value, { sql: query, page, pageSize: DATABASE_PAGE_SIZE })
+    const nextResult = await window.api.database.query(sessionId.value, { sql: query, page, pageSize: DATABASE_PAGE_SIZE, restart })
     if (targetTable) {
       if (openedTables.value.some((table) => tableKey(table) === targetTable)) {
         tableResults.value[targetTable] = nextResult
@@ -541,24 +547,25 @@ function discardChanges(): void {
 }
 
 async function saveChanges(): Promise<void> {
-  if (!canEditTable.value || !activeTable.value || result.value?.kind !== 'rows' || !pendingChangeCount.value || running.value) return
+  const dialect = databaseDialect.value
+  if (!dialect || !canEditTable.value || !activeTable.value || result.value?.kind !== 'rows' || !pendingChangeCount.value || running.value) return
   const columns = result.value.columns
   const metadata = columnsByTable.value[activeTableName.value] || []
   const keys = columns.map((column, index) => metadata.find((item) => item.name === column.name)?.key === 'PRI' ? index : -1).filter((index) => index >= 0)
   const whereIndexes = keys.length ? keys : columns.map((_, index) => index)
   const table = qualifiedTableName(activeTable.value)
-  const predicate = (values: DatabaseCell[]) => whereIndexes.map((index) => `${quoteIdentifier(columns[index].name)} ${values[index] == null ? 'IS NULL' : `= ${databaseSqlLiteral(values[index])}`}`).join(' AND ')
+  const predicate = (values: DatabaseCell[]) => whereIndexes.map((index) => `${quoteIdentifier(columns[index].name)} ${values[index] == null ? 'IS NULL' : `= ${databaseSqlLiteral(values[index], dialect)}`}`).join(' AND ')
   const statements: string[] = []
   for (const values of deletedRows.value[activeTableName.value] || []) statements.push(`DELETE FROM ${table} WHERE ${predicate(values)}`)
   for (const row of activeDraftRows.value) {
     if (!row.original) {
       const indexes = columns.map((_, index) => index).filter((index) => row.values[index] != null || metadata.find((item) => item.name === columns[index].name)?.extra !== 'auto increment')
       statements.push(indexes.length
-        ? `INSERT INTO ${table} (${indexes.map((index) => quoteIdentifier(columns[index].name)).join(', ')}) VALUES (${indexes.map((index) => databaseSqlLiteral(row.values[index])).join(', ')})`
+        ? `INSERT INTO ${table} (${indexes.map((index) => quoteIdentifier(columns[index].name)).join(', ')}) VALUES (${indexes.map((index) => databaseSqlLiteral(row.values[index], dialect)).join(', ')})`
         : isPostgres.value || isSqlite.value ? `INSERT INTO ${table} DEFAULT VALUES` : `INSERT INTO ${table} () VALUES ()`)
     } else if (!sameRow(row.values, row.original)) {
       const changed = columns.map((_, index) => index).filter((index) => row.values[index] !== row.original![index])
-      statements.push(`UPDATE ${table} SET ${changed.map((index) => `${quoteIdentifier(columns[index].name)} = ${databaseSqlLiteral(row.values[index])}`).join(', ')} WHERE ${predicate(row.original)}`)
+      statements.push(`UPDATE ${table} SET ${changed.map((index) => `${quoteIdentifier(columns[index].name)} = ${databaseSqlLiteral(row.values[index], dialect)}`).join(', ')} WHERE ${predicate(row.original)}`)
     }
   }
   running.value = true
@@ -839,7 +846,7 @@ onBeforeUnmount(() => {
           </section>
           <footer v-if="result?.kind === 'rows'" class="result-status">
             <code :title="lastSql">{{ lastSql }}</code><span>{{ resultSummary }}</span>
-            <div class="result-pager"><button :disabled="running || result.page === 0" @click="runQuery(result.page - 1)">‹</button><span>{{ t('pageNumber', { page: result.page + 1 }) }}</span><button :disabled="running || !result.hasMore" @click="runQuery(result.page + 1)">›</button></div>
+            <div class="result-pager"><button :disabled="running || result.page === 0" @click="runQuery(result.page - 1, undefined, false)">‹</button><span>{{ t('pageNumber', { page: result.page + 1 }) }}</span><button :disabled="running || !result.hasMore" @click="runQuery(result.page + 1, undefined, false)">›</button></div>
           </footer>
         </section>
       </main>

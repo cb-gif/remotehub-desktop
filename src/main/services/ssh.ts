@@ -92,14 +92,13 @@ export class SshService {
       let receivedHostKey: string | undefined
       const fail = (error: unknown): void => {
         if (!this.sessions.has(sessionId)) return
+        const wasPending = !settled
+        if (wasPending) settled = true
         const keyState = receivedHostKey ? hostKeyState(connection.hostKeyFingerprint, receivedHostKey) : undefined
         if (keyState === 'new') {
           this.pendingHostKeys.set(connection.id, receivedHostKey!)
           this.closeSession(sessionId, false)
-          if (!settled) {
-            settled = true
-            resolve({ trustRequired: true, fingerprint: receivedHostKey! })
-          }
+          if (wasPending) resolve({ trustRequired: true, fingerprint: receivedHostKey! })
           return
         }
         const appFailure = keyState === 'changed'
@@ -107,10 +106,7 @@ export class SshService {
           : toSshError(error)
         this.emitStatus({ sessionId, status: 'error', code: appFailure.code, message: appFailure.message })
         this.closeSession(sessionId, false)
-        if (!settled) {
-          settled = true
-          reject(appFailure)
-        }
+        if (wasPending) reject(appFailure)
       }
 
       client.on('ready', () => {
@@ -143,8 +139,12 @@ export class SshService {
         })
       })
       client.on('error', fail)
-      client.on('end', () => this.closeSession(sessionId, true))
-      client.on('close', () => this.closeSession(sessionId, true))
+      const closed = (): void => {
+        if (!settled) fail(new Error('SSH connection closed before it was ready'))
+        else this.closeSession(sessionId, true)
+      }
+      client.on('end', closed)
+      client.on('close', closed)
 
       try {
         client.connect({

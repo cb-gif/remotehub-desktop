@@ -9,7 +9,7 @@ describe('Phase 6 MySQL adapter', () => {
     expect(databaseStatement('-- dashboard query\n SELECT 1')).toBe('SELECT')
     expect(databaseStatement('/* explain */\nWITH source AS (SELECT 1) SELECT * FROM source')).toBe('WITH')
     expect(isPageableStatement('SHOW TABLES')).toBe(false)
-    expect(normalizeQueryRequest({ sql: 'SELECT 1', page: 2, pageSize: 500 })).toEqual({ sql: 'SELECT 1', page: 2, pageSize: 500 })
+    expect(normalizeQueryRequest({ sql: 'SELECT 1', page: 2, pageSize: 500 })).toEqual({ sql: 'SELECT 1', page: 2, pageSize: 500, restart: false })
     expect(() => normalizeQueryRequest({ sql: 'SELECT 1', pageSize: 501 })).toThrow(/between 1 and 500/)
   })
 

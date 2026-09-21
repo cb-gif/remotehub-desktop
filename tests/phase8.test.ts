@@ -44,6 +44,8 @@ describe('Phase 8 SQLite workspace', () => {
   it('imports quoted CSV values and safely quotes edited values', () => {
     expect(parseDatabaseCsv('\uFEFFid,note\r\n1,"hello, ""world"""\r\n')).toEqual({ columns: ['id', 'note'], rows: [['1', 'hello, "world"']] })
     expect(databaseSqlLiteral("O'Reilly")).toBe("'O''Reilly'")
+    expect(databaseSqlLiteral('', 'mysql')).toBe("''")
+    expect(databaseSqlLiteral("C:\\new\\test's", 'mysql')).toBe("CONVERT(X'433a5c6e65775c746573742773' USING utf8mb4)")
     expect(databaseSqlLiteral(null)).toBe('NULL')
   })
 

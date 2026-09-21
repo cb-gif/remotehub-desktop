@@ -108,15 +108,7 @@ export class TransferManager {
   cancel(transferId: string): SftpTransferItem {
     const job = this.get(transferId)
     if (isTerminal(job.item.status)) return { ...job.item }
-    this.removePending(transferId)
-    const wasActive = Boolean(job.control)
-    job.generation++
-    try { job.control?.cancel() } catch { /* best effort */ }
-    job.control = undefined
-    if (wasActive) this.activeCount = Math.max(0, this.activeCount - 1)
-    job.item.status = 'cancelled'
-    job.item.speed = 0
-    this.touch(job)
+    this.cancelJob(transferId, job)
     this.schedule()
     return { ...job.item }
   }
@@ -140,11 +132,15 @@ export class TransferManager {
   }
 
   closeSession(sessionId: string): void {
-    for (const [id, job] of [...this.jobs]) {
-      if (job.item.sessionId !== sessionId) continue
-      if (!isTerminal(job.item.status)) this.cancel(id)
+    const sessionJobs = [...this.jobs].filter(([, job]) => job.item.sessionId === sessionId)
+    // Remove every queued item before freeing an active slot. Otherwise cancelling
+    // the first active item can start a later download while the session is closing.
+    for (const [id] of sessionJobs) this.removePending(id)
+    for (const [id, job] of sessionJobs) {
+      if (!isTerminal(job.item.status)) this.cancelJob(id, job)
       this.jobs.delete(id)
     }
+    this.schedule()
   }
 
   private schedule(): void {
@@ -211,6 +207,18 @@ export class TransferManager {
     const job = this.jobs.get(transferId)
     if (!job) throw appError('TRANSFER_NOT_FOUND', 'Transfer not found')
     return job
+  }
+
+  private cancelJob(transferId: string, job: RuntimeJob): void {
+    this.removePending(transferId)
+    const wasActive = Boolean(job.control)
+    job.generation++
+    try { job.control?.cancel() } catch { /* best effort */ }
+    job.control = undefined
+    if (wasActive) this.activeCount = Math.max(0, this.activeCount - 1)
+    job.item.status = 'cancelled'
+    job.item.speed = 0
+    this.touch(job)
   }
 
   private touch(job: RuntimeJob): void {

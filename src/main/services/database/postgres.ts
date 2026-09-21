@@ -42,6 +42,8 @@ export class PostgresAdapter implements DatabaseAdapter {
   readonly type = 'postgres' as const
   private cursorSql = ''
   private cursorOpen = false
+  private cursorOwnsTransaction = false
+  private transactionStatus: 'I' | 'T' | 'E' = 'I'
   private readonly lifecycle = new DatabaseLifecycle()
   private closed = false
 
@@ -79,6 +81,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       this.client = next.client
       this.tunnel = next.tunnel
       this.database = next.database
+      this.transactionStatus = 'I'
       this.watchClient(next.client)
       this.lifecycle.connected()
       void previousClient.end().finally(() => previousTunnel?.close()).catch(() => undefined)
@@ -141,7 +144,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     try {
       if (isPageableStatement(request.sql)) {
         const source = stripFinalSemicolon(request.sql)
-        if (!this.cursorOpen || this.cursorSql !== source) await this.openCursor(source)
+        if (request.restart || !this.cursorOpen || this.cursorSql !== source) await this.openCursor(source)
         const commands = buildPostgresCursorCommands(request.page, request.pageSize)
         await this.client.query(commands.move)
         const result = await this.client.query({ text: commands.fetch, rowMode: 'array' }) as QueryArrayResult<unknown[]>
@@ -160,9 +163,11 @@ export class PostgresAdapter implements DatabaseAdapter {
       }
     } catch (error) {
       if (this.cursorOpen) {
+        const ownsTransaction = this.cursorOwnsTransaction
         this.cursorOpen = false
         this.cursorSql = ''
-        await this.client.query('ROLLBACK').catch(() => undefined)
+        this.cursorOwnsTransaction = false
+        if (ownsTransaction) await this.client.query('ROLLBACK').catch(() => undefined)
       }
       throw mapPostgresError(error)
     }
@@ -178,6 +183,14 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   private watchClient(client: Client): void {
+    const connection = (client as unknown as {
+      connection?: { on?(event: string, listener: (message: { status?: string }) => void): void }
+    }).connection
+    connection?.on?.('readyForQuery', (message) => {
+      if (this.client === client && (message.status === 'I' || message.status === 'T' || message.status === 'E')) {
+        this.transactionStatus = message.status
+      }
+    })
     // Keep an error listener on retired clients until they finish shutting down.
     // Their late events must neither escape uncaught nor close the replacement.
     client.on?.('error', (error: Error) => {
@@ -190,26 +203,30 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   private async openCursor(sql: string): Promise<void> {
     await this.closeCursor()
-    await this.client.query('BEGIN READ ONLY')
+    const ownsTransaction = this.transactionStatus === 'I'
+    if (ownsTransaction) await this.client.query('BEGIN READ ONLY')
     try {
       await this.client.query(`DECLARE "${CURSOR_NAME}" SCROLL CURSOR FOR ${sql}`)
       this.cursorSql = sql
       this.cursorOpen = true
+      this.cursorOwnsTransaction = ownsTransaction
     } catch (error) {
-      await this.client.query('ROLLBACK').catch(() => undefined)
+      if (ownsTransaction) await this.client.query('ROLLBACK').catch(() => undefined)
       throw error
     }
   }
 
   private async closeCursor(): Promise<void> {
     if (!this.cursorOpen) return
+    const ownsTransaction = this.cursorOwnsTransaction
     this.cursorOpen = false
     this.cursorSql = ''
+    this.cursorOwnsTransaction = false
     try {
       await this.client.query(`CLOSE "${CURSOR_NAME}"`)
-      await this.client.query('COMMIT')
+      if (ownsTransaction) await this.client.query('COMMIT')
     } catch {
-      await this.client.query('ROLLBACK').catch(() => undefined)
+      if (ownsTransaction) await this.client.query('ROLLBACK').catch(() => undefined)
     }
   }
 }

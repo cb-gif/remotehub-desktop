@@ -47,6 +47,7 @@ export interface DatabaseQueryRequest {
   sql: string
   page?: number
   pageSize?: number
+  restart?: boolean
 }
 
 export interface DatabaseQueryResult {
@@ -99,9 +100,11 @@ export function normalizeQueryRequest(request: DatabaseQueryRequest): Required<D
   if (!sql || sql.length > DATABASE_MAX_SQL_LENGTH) throw databaseInputError('DATABASE_QUERY_INVALID', 'SQL must contain between 1 byte and 1 MB')
   const page = Number(request.page ?? 0)
   const pageSize = Number(request.pageSize ?? DATABASE_PAGE_SIZE)
+  const restart = request.restart ?? page === 0
   if (!Number.isInteger(page) || page < 0 || page > 1_000_000) throw databaseInputError('DATABASE_PAGE_INVALID', 'Query page is invalid')
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > DATABASE_MAX_PAGE_SIZE) throw databaseInputError('DATABASE_PAGE_INVALID', `Page size must be between 1 and ${DATABASE_MAX_PAGE_SIZE}`)
-  return { sql, page, pageSize }
+  if (typeof restart !== 'boolean') throw databaseInputError('DATABASE_QUERY_INVALID', 'Query restart option is invalid')
+  return { sql, page, pageSize, restart }
 }
 
 export function databaseStatement(sql: string): string {
@@ -149,10 +152,15 @@ export function parseDatabaseCsv(source: string): { columns: string[]; rows: Dat
   return { columns, rows: records.map((row) => columns.map((_, index) => row[index] ?? '')) }
 }
 
-export function databaseSqlLiteral(value: DatabaseCell): string {
+export function databaseSqlLiteral(value: DatabaseCell, dialect: DatabaseAdapterType = 'sqlite'): string {
   if (value == null) return 'NULL'
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : `'${String(value)}'`
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+  if (dialect === 'mysql') {
+    if (!value) return "''"
+    const hex = [...new TextEncoder().encode(value)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    return `CONVERT(X'${hex}' USING utf8mb4)`
+  }
   return `'${value.replaceAll("'", "''")}'`
 }
 
