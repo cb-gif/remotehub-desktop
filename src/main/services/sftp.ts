@@ -8,6 +8,7 @@ import type { Connection } from '../../shared/types'
 import type { SessionConnectionStatusEvent, TabConnectionStatus } from '../../shared/connection-status'
 import { joinRemotePath, normalizeRemotePath, type SftpConnectResult, type SftpEntry, type SftpEntryType, type SftpQueueResult, type SftpTransferConflict, type SftpTransferEvent, type SftpTransferItem } from '../../shared/sftp'
 import { sshErrorCode, type SshPasswordOptions } from '../../shared/ssh'
+import { MAX_TRANSFER_FILES } from '../../shared/transfer-limits'
 import { CredentialService } from './credentials'
 import { fingerprintHostKey, hostKeyState } from './host-key'
 import { appError, StorageService } from './storage'
@@ -44,7 +45,6 @@ export type FilePlan = { localPath: string; remotePath: string; relativePath: st
 export type DirectoryPlan = { path: string; modifiedAt: number }
 
 const loadNativeModule = createRequire(__filename)
-const MAX_TRANSFER_FILES = 5000
 const MAX_EDIT_BYTES = 2 * 1024 * 1024
 
 export class SftpService {
@@ -190,7 +190,7 @@ export class SftpService {
 
   async enqueueUploads(sessionId: string, localPaths: string[], remoteDirectory: string, overwrite: boolean): Promise<SftpQueueResult> {
     const session = this.getSession(sessionId)
-    if (!Array.isArray(localPaths) || !localPaths.length || localPaths.length > 100 || localPaths.some((path) => typeof path !== 'string')) throw appError('TRANSFER_INPUT_INVALID', 'Choose between 1 and 100 files or folders')
+    if (!Array.isArray(localPaths) || !localPaths.length || localPaths.length > MAX_TRANSFER_FILES || localPaths.some((path) => typeof path !== 'string')) throw appError('TRANSFER_INPUT_INVALID', `Choose between 1 and ${MAX_TRANSFER_FILES} files or folders`)
     const directory = validateRemotePath(remoteDirectory)
     const { files, directories } = buildUploadPlan(localPaths, directory)
     const conflicts = await findConflicts(files, async (file) => Boolean(await this.remoteStat(session.sftp, file.remotePath)), 'upload')

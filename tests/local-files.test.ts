@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { listLocalDirectory, localParentPath, type LocalFileSystem } from '../src/main/services/local-files'
 import { LOCAL_COMPUTER_ROOT, localNavigationTarget, localTransferDirectory } from '../src/shared/local-files'
+import { MAX_TRANSFER_FILES } from '../src/shared/transfer-limits'
 
 const shortcuts = [
   { location: 'home', path: 'C:\\Users\\test-user' },
@@ -72,6 +73,26 @@ describe('local browser computer root for SFTP and FTP', () => {
     const result = await listLocalDirectory('D:\\Learning', { defaultPath: 'D:\\Downloads', shortcuts: [], platform: 'win32', fileSystem: fakeFileSystem() })
     expect(result.parentPath).toBe('D:\\')
     expect(result.entries.map(entry => entry.name)).toEqual(['Learning', 'note.txt'])
+  })
+
+  it('shows up to 10,000 local files without launching all metadata reads at once', async () => {
+    const names = Array.from({ length: MAX_TRANSFER_FILES + 1 }, (_, index) => `file-${index}.txt`)
+    let active = 0
+    let peak = 0
+    const io: LocalFileSystem = {
+      stat: async () => ({ isDirectory: () => true }),
+      readdir: async () => names,
+      lstat: async () => {
+        active++
+        peak = Math.max(peak, active)
+        await Promise.resolve()
+        active--
+        return { isDirectory: () => false, isSymbolicLink: () => false, size: 1, mtimeMs: 0 }
+      }
+    }
+    const result = await listLocalDirectory('D:\\', { defaultPath: 'D:\\', shortcuts: [], platform: 'win32', fileSystem: io })
+    expect(result.entries).toHaveLength(MAX_TRANSFER_FILES)
+    expect(peak).toBeLessThanOrEqual(256)
   })
 
   it('does not let an unresponsive mapped drive block the computer view', async () => {

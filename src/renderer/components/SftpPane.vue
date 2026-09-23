@@ -32,6 +32,9 @@ const errorMessage = ref('')
 const pendingFingerprint = ref('')
 const transfers = ref<SftpTransferItem[]>([])
 const transferPanelOpen = ref(true)
+const visibleTransferCount = ref(200)
+const transferIndex = new Map<string, number>()
+const visibleTransfers = computed(() => transfers.value.slice(0, visibleTransferCount.value))
 const localPath = ref('')
 const isLocalComputerRoot = computed(() => localPath.value === LOCAL_COMPUTER_ROOT)
 const localPathInput = ref('')
@@ -39,6 +42,8 @@ const localParentPath = ref('')
 const localEntries = ref<LocalEntry[]>([])
 const selectedLocalPaths = ref<string[]>([])
 const selectedRemotePaths = ref<string[]>([])
+const selectedLocalSet = computed(() => new Set(selectedLocalPaths.value))
+const selectedRemoteSet = computed(() => new Set(selectedRemotePaths.value))
 const localLoading = ref(true)
 const localError = ref('')
 const entryMenu = ref<{ side: 'local' | 'remote'; entry: LocalEntry | SftpEntry; x: number; y: number } | null>(null)
@@ -80,10 +85,17 @@ function transferEvent(event: SftpTransferItem): void {
 }
 
 function upsertTransfer(item: SftpTransferItem): void {
-  const index = transfers.value.findIndex((current) => current.transferId === item.transferId)
-  if (index >= 0) transfers.value[index] = item
-  else transfers.value.push(item)
-  transfers.value.sort((a, b) => a.createdAt - b.createdAt)
+  const index = transferIndex.get(item.transferId)
+  if (index !== undefined) transfers.value[index] = item
+  else {
+    transferIndex.set(item.transferId, transfers.value.length)
+    transfers.value.push(item)
+  }
+}
+
+function rebuildTransferIndex(): void {
+  transferIndex.clear()
+  transfers.value.forEach((item, index) => transferIndex.set(item.transferId, index))
 }
 
 function retainSelection(selected: string[], items: { path: string }[]): string[] {
@@ -103,12 +115,12 @@ function selectEntry(event: MouseEvent, side: 'local' | 'remote', entry: LocalEn
 }
 
 function selectedEntries(side: 'local' | 'remote'): (LocalEntry | SftpEntry)[] {
-  const selected = side === 'local' ? selectedLocalPaths.value : selectedRemotePaths.value
-  return (side === 'local' ? localEntries.value : entries.value).filter((entry) => selected.includes(entry.path))
+  const selected = side === 'local' ? selectedLocalSet.value : selectedRemoteSet.value
+  return (side === 'local' ? localEntries.value : entries.value).filter((entry) => selected.has(entry.path))
 }
 
 function isSelected(side: 'local' | 'remote', path: string): boolean {
-  return (side === 'local' ? selectedLocalPaths.value : selectedRemotePaths.value).includes(path)
+  return (side === 'local' ? selectedLocalSet.value : selectedRemoteSet.value).has(path)
 }
 
 async function connect(): Promise<void> {
@@ -122,6 +134,8 @@ async function connect(): Promise<void> {
   statusTracker.start()
   if (previousSession) await remoteApi.value.disconnect(previousSession).catch(() => undefined)
   transfers.value = []
+  transferIndex.clear()
+  visibleTransferCount.value = 200
   selectedRemotePaths.value = []
   remoteSelectionAnchor = ''
   try {
@@ -161,6 +175,7 @@ async function connect(): Promise<void> {
     path.value = result.homePath
     pathInput.value = result.homePath
     transfers.value = await remoteApi.value.listTransfers(result.sessionId)
+    rebuildTransferIndex()
     await refresh()
   } catch (error) {
     pendingPassword = undefined
@@ -447,6 +462,7 @@ async function clearFinished(): Promise<void> {
   try {
     await remoteApi.value.clearFinishedTransfers(sessionId.value)
     transfers.value = transfers.value.filter((item) => item.status === 'queued' || item.status === 'running' || item.status === 'paused')
+    rebuildTransferIndex()
   } catch (error) { showError(error) }
 }
 
@@ -573,13 +589,13 @@ function closeEntryMenu(): void {
       </button>
       <template v-if="transferPanelOpen">
         <div class="transfer-list">
-          <div v-for="item in transfers" :key="item.transferId" class="transfer-row" :class="item.status">
+          <div v-for="item in visibleTransfers" :key="item.transferId" class="transfer-row" :class="item.status">
             <span class="transfer-direction"><UiIcon :name="item.direction === 'upload' ? 'upload' : 'download'" /></span>
             <span class="transfer-copy"><strong :title="item.relativePath">{{ item.relativePath }}</strong><span class="transfer-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="transferProgress(item)"><i :style="{ width: `${transferProgress(item)}%` }"></i></span><small>{{ statusText(item.status) }} · {{ transferProgress(item) }}% · {{ formatSize(item.transferred) }} / {{ formatSize(item.total) }}<template v-if="item.speed"> · {{ formatSize(item.speed) }}/s</template><template v-if="item.message"> · {{ item.message }}</template></small></span>
             <span class="transfer-actions"><button v-if="canPause(item)" @click="pauseOrResume(item)"><UiIcon :name="item.status === 'paused' ? 'play' : 'pause'" /> {{ item.status === 'paused' ? t('resume') : t('pause') }}</button><button v-if="canCancel(item)" class="danger" @click="cancelTransfer(item)"><UiIcon name="close" /> {{ t('cancel') }}</button><button v-if="item.status === 'error' || item.status === 'cancelled'" @click="retryTransfer(item)"><UiIcon name="refresh" /> {{ t('retry') }}</button></span>
           </div>
         </div>
-        <div class="transfer-footer"><span>{{ activeTransfers.length ? t('parallelTransfers') : t('transferIdle') }}</span><button v-if="finishedTransfers.length" class="text-button" @click="clearFinished">{{ t('clearFinished') }}</button></div>
+        <div class="transfer-footer"><span>{{ activeTransfers.length ? t('parallelTransfers') : t('transferIdle') }}</span><button v-if="visibleTransferCount < transfers.length" class="text-button" @click="visibleTransferCount += 200">{{ t('showMoreTransfers', { count: Math.min(200, transfers.length - visibleTransferCount) }) }}</button><button v-if="finishedTransfers.length" class="text-button" @click="clearFinished">{{ t('clearFinished') }}</button></div>
       </template>
     </section>
     <div v-if="entryMenu" class="sftp-context-menu" :style="{ left: `${entryMenu.x}px`, top: `${entryMenu.y}px` }" @pointerdown.stop>

@@ -7,6 +7,7 @@ import { Readable, Writable } from 'node:stream'
 import { Client, type FileInfo } from 'basic-ftp'
 import type { Connection } from '../../shared/types'
 import type { SessionConnectionStatusEvent } from '../../shared/connection-status'
+import { MAX_TRANSFER_FILES } from '../../shared/transfer-limits'
 import { joinRemotePath, normalizeRemotePath, type SftpConnectResult, type SftpEntry, type SftpEntryType, type SftpQueueResult, type SftpTransferConflict, type SftpTransferEvent, type SftpTransferItem } from '../../shared/sftp'
 import { CredentialService } from './credentials'
 import { appError, StorageService } from './storage'
@@ -23,7 +24,6 @@ type FtpSession = {
 type EventSink = (channel: 'ftp:transfer' | 'ftp:status', payload: SftpTransferEvent | SessionConnectionStatusEvent) => void
 
 const MAX_EDIT_BYTES = 2 * 1024 * 1024
-const MAX_TRANSFER_FILES = 5000
 
 export class FtpService {
   private readonly sessions = new Map<string, FtpSession>()
@@ -111,7 +111,7 @@ export class FtpService {
   }
 
   enqueueUploads(sessionId: string, localPaths: string[], remoteDirectory: string, overwrite: boolean): Promise<SftpQueueResult> {
-    if (!Array.isArray(localPaths) || !localPaths.length || localPaths.length > 100 || localPaths.some((path) => typeof path !== 'string')) throw appError('TRANSFER_INPUT_INVALID', 'Choose between 1 and 100 files or folders')
+    if (!Array.isArray(localPaths) || !localPaths.length || localPaths.length > MAX_TRANSFER_FILES || localPaths.some((path) => typeof path !== 'string')) throw appError('TRANSFER_INPUT_INVALID', `Choose between 1 and ${MAX_TRANSFER_FILES} files or folders`)
     const directory = ftpPath(remoteDirectory)
     return this.run(sessionId, async (session) => {
       const { files, directories } = buildUploadPlan(localPaths, directory)
@@ -244,7 +244,16 @@ export class FtpService {
 
   private async uploadConflicts(client: Client, files: FilePlan[]): Promise<SftpTransferConflict[]> {
     const conflicts: SftpTransferConflict[] = []
-    for (const file of files) if (await this.remoteEntry(client, file.remotePath)) conflicts.push({ direction: 'upload', path: file.remotePath, name: file.relativePath })
+    const directoryEntries = new Map<string, Set<string>>()
+    for (const file of files) {
+      const parent = posix.dirname(ftpPath(file.remotePath))
+      let names = directoryEntries.get(parent)
+      if (!names) {
+        names = new Set((await client.list(parent)).map((entry) => entry.name))
+        directoryEntries.set(parent, names)
+      }
+      if (names.has(posix.basename(file.remotePath))) conflicts.push({ direction: 'upload', path: file.remotePath, name: file.relativePath })
+    }
     return conflicts
   }
 

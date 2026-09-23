@@ -37,6 +37,17 @@ describe('connection JSON and SFTP upload metadata', () => {
     expect(plan.directories).toContainEqual({ path: '/remote/folder', modifiedAt: Math.floor(folderTime.getTime() / 1000) })
   })
 
+  it('accepts more than 100 files in one upload plan', () => {
+    const root = mkdtempSync(join(tmpdir(), 'remotehub-bulk-upload-'))
+    temporaryPaths.push(root)
+    const files = Array.from({ length: 101 }, (_, index) => {
+      const path = join(root, `file-${index}.txt`)
+      writeFileSync(path, '')
+      return path
+    })
+    expect(buildUploadPlan(files, '/remote').files).toHaveLength(101)
+  })
+
   it('waits for the destination handle to close before completing an upload', async () => {
     const done = vi.fn()
     const target = new Writable({ autoDestroy: false, write: (_chunk, _encoding, callback) => callback() })

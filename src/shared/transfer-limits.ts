@@ -1,0 +1,1 @@
+export const MAX_TRANSFER_FILES = 10_000

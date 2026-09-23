@@ -53,8 +53,8 @@ const assetSettingsMessages = {
 } as const
 
 const workspaceStateMessages = {
-  'zh-CN': { authNone: '不验证（连接时输入密码）', sshPasswordPrompt: 'SSH 密码验证', sftpPasswordPrompt: 'SFTP 密码验证', saveSshPassword: '保存密码，下次自动连接', sshPasswordCountdown: '请在 {seconds} 秒内输入密码', sshPasswordTimeout: '连接超时：未在 60 秒内输入密码', sshAuthenticate: '验证并连接', connectionFailed: '连接失败', dragGroup: '按住左键拖动分组排序；Alt + 上下方向键也可移动' },
-  en: { authNone: 'Ask for password on connect', sshPasswordPrompt: 'SSH password authentication', sftpPasswordPrompt: 'SFTP password authentication', saveSshPassword: 'Save password for future connections', sshPasswordCountdown: 'Enter your password within {seconds} seconds', sshPasswordTimeout: 'Connection timed out: no password entered within 60 seconds', sshAuthenticate: 'Authenticate and connect', connectionFailed: 'Connection failed', dragGroup: 'Drag to reorder groups, or press Alt + Up / Down' }
+  'zh-CN': { authNone: '不验证（连接时输入密码）', sshPasswordPrompt: 'SSH 密码验证', sftpPasswordPrompt: 'SFTP 密码验证', saveSshPassword: '保存密码，下次自动连接', sshPasswordCountdown: '请在 {seconds} 秒内输入密码', sshPasswordTimeout: '连接超时：未在 60 秒内输入密码', sshAuthenticate: '验证并连接', connectionFailed: '连接失败', dragGroup: '按住左键拖动分组排序；Alt + 上下方向键也可移动', showMoreTransfers: '再显示 {count} 项' },
+  en: { authNone: 'Ask for password on connect', sshPasswordPrompt: 'SSH password authentication', sftpPasswordPrompt: 'SFTP password authentication', saveSshPassword: 'Save password for future connections', sshPasswordCountdown: 'Enter your password within {seconds} seconds', sshPasswordTimeout: 'Connection timed out: no password entered within 60 seconds', sshAuthenticate: 'Authenticate and connect', connectionFailed: 'Connection failed', dragGroup: 'Drag to reorder groups, or press Alt + Up / Down', showMoreTransfers: 'Show {count} more' }
 } as const
 
 type MessageKey = keyof typeof messages.en | keyof typeof phase6Messages.en | keyof typeof multiViewMessages.en | keyof typeof cellDataMessages.en | keyof typeof databaseUiMessages.en | keyof typeof connectionUiMessages.en | keyof typeof localBrowserMessages.en | keyof typeof assetSettingsMessages.en | keyof typeof workspaceStateMessages.en

@@ -1,6 +1,7 @@
 import { lstat, readdir, stat } from 'node:fs/promises'
 import { posix, win32 } from 'node:path'
 import { LOCAL_COMPUTER_ROOT, type LocalDirectory, type LocalEntry, type LocalShortcut } from '../../shared/local-files'
+import { MAX_TRANSFER_FILES } from '../../shared/transfer-limits'
 
 type FileDetails = { isDirectory(): boolean; isSymbolicLink(): boolean; size: number; mtimeMs: number }
 export type LocalFileSystem = {
@@ -71,14 +72,19 @@ export async function listLocalDirectory(requestedPath: string | undefined, opti
   if (!(await io.stat(path)).isDirectory()) throw new Error('Local path is not a directory')
   // Read names first so inaccessible metadata on one root entry cannot fail the whole folder.
   const items = await io.readdir(path)
-  const entries: LocalEntry[] = (await Promise.all(items.slice(0, 5000).map(async name => {
-    const itemPath = paths.resolve(path, name)
-    try {
-      const details = await io.lstat(itemPath)
-      const type: LocalEntry['type'] = details.isDirectory() ? 'directory' : details.isSymbolicLink() ? 'link' : 'file'
-      return { name, path: itemPath, type, size: details.size, modifiedAt: details.mtimeMs }
-    } catch { return null }
-  }))).filter((item): item is NonNullable<typeof item> => item !== null)
+  const entries: LocalEntry[] = []
+  const visibleItems = items.slice(0, MAX_TRANSFER_FILES)
+  for (let index = 0; index < visibleItems.length; index += 256) {
+    const batch = await Promise.all(visibleItems.slice(index, index + 256).map(async name => {
+      const itemPath = paths.resolve(path, name)
+      try {
+        const details = await io.lstat(itemPath)
+        const type: LocalEntry['type'] = details.isDirectory() ? 'directory' : details.isSymbolicLink() ? 'link' : 'file'
+        return { name, path: itemPath, type, size: details.size, modifiedAt: details.mtimeMs }
+      } catch { return null }
+    }))
+    entries.push(...batch.filter((item): item is NonNullable<typeof item> => item !== null))
+  }
   entries.sort((a, b) => Number(b.type === 'directory') - Number(a.type === 'directory') || a.name.localeCompare(b.name))
   return { path, parentPath: localParentPath(path, platform), entries }
 }
