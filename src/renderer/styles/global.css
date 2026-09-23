@@ -402,7 +402,7 @@ kbd { padding: 2px 4px; border: 1px solid var(--line); border-radius: 3px; color
 @keyframes dialog-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
 @media (prefers-reduced-motion: reduce) { .modal-layer, .connection-dialog { animation: none; } }
 .sftp-pane { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--text); background: var(--panel); font-family: var(--font-ui); }
-.sftp-toolbar { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.sftp-toolbar { position: relative; z-index: 4; display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .sftp-toolbar-heading { display: flex; min-width: 0; flex: 0 1 auto; overflow: hidden; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid var(--line-soft); }
 .sftp-toolbar-heading > span:last-child { display: flex; min-width: 70px; flex-direction: column; gap: 1px; }
 .sftp-toolbar-heading strong { color: var(--text); font-size: 11px; font-weight: 600; white-space: nowrap; }
