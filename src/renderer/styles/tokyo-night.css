@@ -1,4 +1,4 @@
-/* Tokyo Night Night / Storm: https://github.com/tokyo-night/tokyo-night-vscode-theme */
+/* Tokyo Night Night / Storm / Light: https://github.com/tokyo-night/tokyo-night-vscode-theme */
 :root[data-theme^='tokyo-'] {
   color-scheme: dark;
   color: #a9b1d6;
@@ -109,6 +109,40 @@
   --ui-divider: #2e344f;
   --ui-divider-soft: #292e42;
   --ui-text-subtle: #737eaa;
+}
+
+/* The official Light variant uses its own daylight accents and ANSI palette. */
+:root[data-theme='tokyo-light'] {
+  color-scheme: light;
+  color: #343b59;
+  background: #e6e7ed;
+  --tn-night: #ffffff;
+  --tn-toolbar: #d6d8df;
+  --tn-canvas: #e6e7ed;
+  --tn-highlight: #dcdee3;
+  --tn-storm: #dadce3;
+  --tn-border: #c1c2c7;
+  --tn-text: #343b59;
+  --tn-strong: #363c4d;
+  --tn-muted: #707280;
+  --tn-comment: #9da0ab;
+  --tn-blue: #2959aa;
+  --tn-cyan: #006c86;
+  --tn-green: #33635c;
+  --tn-red: #8c4351;
+  --tn-yellow: #8f5e15;
+  --tn-purple: #7b43ba;
+  --ui-hover: #dcdee3;
+  --ui-selected: #ccd3e1;
+  --ui-divider: #c1c2c7;
+  --ui-divider-soft: #d0d2dc;
+  --ui-text-subtle: #707280;
+  --status-connected: #397568;
+  --status-error: #a34b59;
+  --status-warning: #91672f;
+  --status-info: #416ba7;
+  --status-idle: #707280;
+  --component-terminal-row: rgba(41, 89, 170, .045);
 }
 
 :root[data-theme^='tokyo-'] .top-toolbar,

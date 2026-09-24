@@ -761,62 +761,62 @@ kbd { padding: 2px 4px; border: 1px solid var(--line); border-radius: 3px; color
 .database-tabs > button, .database-table-tab, .result-grid th, .result-grid td { font-size: 13px; }
 @media (max-width: 900px) { .explorer { width: 220px; flex-basis: 220px; } .brand { width: 190px; } .module-placeholders { grid-template-columns: 1fr; } }
 
-:root[data-theme='light'] .top-toolbar,
-:root[data-theme='light'] .status-bar,
-:root[data-theme='light'] .main-workspace,
-:root[data-theme='light'] .workspace-pane-slot { background: var(--bg); }
-:root[data-theme='light'] .explorer,
-:root[data-theme='light'] .tab-bar,
-:root[data-theme='light'] .tab-tools,
-:root[data-theme='light'] .split-pane-heading { background: var(--panel-3); }
-:root[data-theme='light'] .brand strong,
-:root[data-theme='light'] .explorer-title,
-:root[data-theme='light'] .connection-copy strong,
-:root[data-theme='light'] .welcome-view h1 { color: var(--text); }
-:root[data-theme='light'] .search-box,
-:root[data-theme='light'] .workspace-tab.active,
-:root[data-theme='light'] .workspace-tab.secondary,
-:root[data-theme='light'] .tab-menu-popover,
-:root[data-theme='light'] .connection-context-menu,
-:root[data-theme='light'] .connection-dialog { background: var(--panel); }
-:root[data-theme='light'] .connection-row:hover,
-:root[data-theme='light'] .workspace-connection-card:hover,
-:root[data-theme='light'] .tab-menu-popover button:hover,
-:root[data-theme='light'] .connection-context-menu button:hover { background: var(--hover); }
-:root[data-theme='light'] .sftp-pane,
-:root[data-theme='light'] .sftp-browser,
-:root[data-theme='light'] .database-pane,
-:root[data-theme='light'] .schema-explorer,
-:root[data-theme='light'] .cell-detail-panel,
-:root[data-theme='light'] .cell-detail-panel textarea { background: var(--panel); }
-:root[data-theme='light'] .sftp-toolbar,
-:root[data-theme='light'] .sftp-browser-nav,
-:root[data-theme='light'] .transfer-manager,
-:root[data-theme='light'] .transfer-row,
-:root[data-theme='light'] .result-status { background: var(--surface); }
-:root[data-theme='light'] .sftp-browser-title,
-:root[data-theme='light'] .sftp-table th,
-:root[data-theme='light'] .transfer-header,
-:root[data-theme='light'] .database-toolbar,
-:root[data-theme='light'] .schema-heading,
-:root[data-theme='light'] .schema-group,
-:root[data-theme='light'] .database-tabs,
-:root[data-theme='light'] .database-tabs > button.active,
-:root[data-theme='light'] .database-table-tab.active,
-:root[data-theme='light'] .sql-section-toolbar,
-:root[data-theme='light'] .result-toolbar,
-:root[data-theme='light'] .result-grid th { background: var(--surface-raised); }
-:root[data-theme='light'] .sftp-path input,
-:root[data-theme='light'] .field input,
-:root[data-theme='light'] .field select,
-:root[data-theme='light'] .field textarea,
-:root[data-theme='light'] .schema-search,
-:root[data-theme='light'] .row-filter { background: var(--panel); }
-:root[data-theme='light'] .result-grid .row-number,
-:root[data-theme='light'] .result-grid th.row-number { background: var(--surface); }
-:root[data-theme='light'] .database-node > button:hover,
-:root[data-theme='light'] .database-node.active > button,
-:root[data-theme='light'] .schema-node > button:hover,
-:root[data-theme='light'] .schema-node.active > button,
-:root[data-theme='light'] .schema-table > button:hover,
-:root[data-theme='light'] .result-grid tbody tr:hover td { background: var(--hover); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .top-toolbar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .status-bar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .main-workspace,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .workspace-pane-slot { background: var(--bg); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .explorer,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .tab-bar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .tab-tools,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .split-pane-heading { background: var(--panel-3); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .brand strong,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .explorer-title,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .connection-copy strong,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .welcome-view h1 { color: var(--text); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .search-box,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .workspace-tab.active,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .workspace-tab.secondary,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .tab-menu-popover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .connection-context-menu,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .connection-dialog { background: var(--panel); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .connection-row:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .workspace-connection-card:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .tab-menu-popover button:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .connection-context-menu button:hover { background: var(--hover); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-pane,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-browser,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-pane,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-explorer,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .cell-detail-panel,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .cell-detail-panel textarea { background: var(--panel); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-toolbar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-browser-nav,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .transfer-manager,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .transfer-row,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-status { background: var(--surface); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-browser-title,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-table th,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .transfer-header,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-toolbar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-heading,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-group,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-tabs,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-tabs > button.active,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-table-tab.active,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sql-section-toolbar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-toolbar,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-grid th { background: var(--surface-raised); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-path input,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .field input,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .field select,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .field textarea,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-search,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .row-filter { background: var(--panel); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-grid .row-number,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-grid th.row-number { background: var(--surface); }
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-node > button:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .database-node.active > button,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-node > button:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-node.active > button,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .schema-table > button:hover,
+:root:is([data-theme='light'], [data-theme='tokyo-light']) .result-grid tbody tr:hover td { background: var(--hover); }

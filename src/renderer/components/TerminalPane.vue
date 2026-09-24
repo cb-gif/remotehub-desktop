@@ -67,7 +67,7 @@ function terminalContrastRatio(): number {
 }
 
 function writeTerminal(data: string): void {
-  if (document.documentElement.dataset.theme !== 'light') {
+  if (document.documentElement.dataset.theme !== 'light' && document.documentElement.dataset.theme !== 'tokyo-light') {
     terminal?.write(pendingTerminalEscape + data)
     pendingTerminalEscape = ''
     return

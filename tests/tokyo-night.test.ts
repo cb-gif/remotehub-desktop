@@ -36,4 +36,22 @@ describe('Tokyo Night theme', () => {
     }
     expect(css).toContain('box-shadow: inset 0 -2px var(--component-tab-indicator)')
   })
+
+  it('uses the official daylight terminal palette and light UI layers', () => {
+    vi.stubGlobal('document', { documentElement: { dataset: { theme: 'tokyo-light' } } })
+    expect(terminalTheme()).toMatchObject({
+      background: '#d6d8df', foreground: '#343b58', cursor: '#707280',
+      black: '#343b58', red: '#8c4351', green: '#33635c', yellow: '#8f5e15',
+      blue: '#2959aa', magenta: '#7b43ba', cyan: '#006c86', white: '#707280',
+      brightBlack: '#343b58', brightRed: '#8c4351', brightGreen: '#33635c', brightYellow: '#8f5e15',
+      brightBlue: '#2959aa', brightMagenta: '#7b43ba', brightCyan: '#006c86', brightWhite: '#707280'
+    })
+    const css = readFileSync(resolve('src/renderer/styles/tokyo-night.css'), 'utf8')
+    expect(css).toContain(":root[data-theme='tokyo-light']")
+    expect(css).toContain('color-scheme: light')
+    expect(css).toContain('--tn-canvas: #e6e7ed')
+    expect(css).toContain('--tn-toolbar: #d6d8df')
+    const globalCss = readFileSync(resolve('src/renderer/styles/global.css'), 'utf8')
+    expect(globalCss).toContain(":root:is([data-theme='light'], [data-theme='tokyo-light']) .sftp-pane")
+  })
 })
