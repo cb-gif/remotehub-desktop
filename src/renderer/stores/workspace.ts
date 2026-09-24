@@ -33,7 +33,7 @@ function tabSftpPreferences(value: Record<string, unknown> = {}): Pick<Workspace
 }
 
 const STORAGE_KEY = 'remotehub.workspace'
-const welcomeTab: WorkspaceTab = { id: 'welcome', type: 'welcome', title: 'Workspace', closable: false }
+const welcomeTab: WorkspaceTab = { id: 'welcome', type: 'welcome', title: '', closable: false }
 const connectionTabTypes = new Set<WorkspaceTabType>(['terminal', 'sftp', 'sql'])
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -182,8 +182,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function cycle(direction: 1 | -1): void {
-    const index = tabs.value.findIndex((tab) => tab.id === activeId.value)
-    activate(tabs.value[(index + direction + tabs.value.length) % tabs.value.length].id)
+    const connectionTabs = tabs.value.filter((tab) => tab.closable)
+    if (!connectionTabs.length) return
+    const index = connectionTabs.findIndex((tab) => tab.id === activeId.value)
+    activate(connectionTabs[(index + direction + connectionTabs.length) % connectionTabs.length].id)
   }
 
   function removeConnection(connectionId: string): void {
@@ -209,11 +211,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       })) : []
       const unique = restored.filter((tab, index) => restored.findIndex((item) => item.id === tab.id) === index)
       tabs.value = [{ ...welcomeTab }, ...unique]
-      activeId.value = typeof state.activeId === 'string' && tabs.value.some((tab) => tab.id === state.activeId) ? state.activeId : 'welcome'
+      const savedActiveId = typeof state.activeId === 'string' && unique.some((tab) => tab.id === state.activeId) ? state.activeId : undefined
+      activeId.value = savedActiveId || unique[0]?.id || 'welcome'
       const restoredSecondaryIds = Array.isArray(state.secondaryIds) ? state.secondaryIds : typeof state.secondaryId === 'string' ? [state.secondaryId] : []
       const restoredPanes = Array.isArray(state.paneIds) ? state.paneIds : [activeId.value, ...restoredSecondaryIds]
       const maximum = state.viewCount === 4 ? 4 : restoredPanes.length > 1 ? 2 : 1
       paneIds.value = restoredPanes.filter((id): id is string => typeof id === 'string' && tabs.value.some((tab) => tab.id === id)).slice(0, maximum)
+      if (activeId.value !== 'welcome' && !paneIds.value.includes(activeId.value)) paneIds.value = [activeId.value, ...paneIds.value.filter((id) => id !== 'welcome')].slice(0, maximum)
       normalizeViewCount()
       nextTabId = Math.max(0, ...unique.map((tab) => Number(tab.id.match(/:(\d+)$/)?.[1] || 0)))
     } catch {

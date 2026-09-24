@@ -1,0 +1,158 @@
+/* Tokyo Night (original VS Code Night palette): https://github.com/tokyo-night/tokyo-night-vscode-theme */
+:root[data-theme='tokyo-night'] {
+  color-scheme: dark;
+  color: #a9b1d6;
+  background: #1a1b26;
+
+  /* Palette */
+  --tn-night: #101014;
+  --tn-toolbar: #16161e;
+  --tn-canvas: #1a1b26;
+  --tn-highlight: #1e202e;
+  --tn-storm: #24283b;
+  --tn-border: #363b54;
+  --tn-text: #a9b1d6;
+  --tn-strong: #c0caf5;
+  --tn-muted: #9aa5ce;
+  --tn-comment: #565f89;
+  --tn-blue: #7aa2f7;
+  --tn-cyan: #7dcfff;
+  --tn-green: #73daca;
+  --tn-red: #f7768e;
+  --tn-yellow: #e0af68;
+  --tn-purple: #bb9af7;
+
+  /* UI hierarchy: background depth carries structure; dividers stay quiet. */
+  --ui-canvas: var(--tn-canvas);
+  --ui-toolbar: var(--tn-toolbar);
+  --ui-sidebar: var(--tn-toolbar);
+  --ui-tabs: var(--tn-toolbar);
+  --ui-panel: var(--tn-canvas);
+  --ui-surface: var(--tn-highlight);
+  --ui-raised: var(--tn-storm);
+  --ui-hover: #292e42;
+  --ui-selected: #29355a;
+  --ui-input: var(--tn-toolbar);
+  --ui-menu: var(--tn-storm);
+  --ui-divider: #292d42;
+  --ui-divider-soft: #24283b;
+  --ui-text: var(--tn-text);
+  --ui-text-strong: var(--tn-strong);
+  --ui-text-muted: var(--tn-muted);
+  --ui-text-subtle: #7982a9;
+  --ui-focus: var(--tn-blue);
+
+  /* Low-saturation status colors, separate from the ANSI palette. */
+  --status-connected: #75b9aa;
+  --status-error: #c97988;
+  --status-warning: #c4a373;
+  --status-info: #83a5d9;
+  --status-idle: #7982a9;
+
+  /* Component roles */
+  --component-tab-active: var(--tn-strong);
+  --component-tab-indicator: var(--tn-blue);
+  --component-tab-inactive: var(--ui-text-subtle);
+  --component-button: var(--tn-storm);
+  --component-button-hover: var(--ui-hover);
+  --component-menu: var(--ui-menu);
+  --component-input: var(--ui-input);
+  --component-terminal: var(--tn-toolbar);
+  --component-terminal-row: rgba(122, 162, 247, .025);
+  --component-folder-back: #b1874c;
+  --component-folder-front: #d3aa68;
+  --component-folder-highlight: #e0bf88;
+
+  /* Existing application token aliases: every pane uses one palette. */
+  --bg: var(--ui-canvas);
+  --panel: var(--ui-panel);
+  --panel-2: var(--ui-raised);
+  --panel-3: var(--ui-sidebar);
+  --surface: var(--ui-surface);
+  --surface-raised: var(--ui-raised);
+  --hover: var(--ui-hover);
+  --input: var(--component-input);
+  --menu: var(--component-menu);
+  --line: var(--ui-divider);
+  --line-soft: var(--ui-divider-soft);
+  --text: var(--ui-text);
+  --muted: var(--ui-text-muted);
+  --subtle: var(--ui-text-subtle);
+  --blue: var(--tn-blue);
+  --green: var(--status-connected);
+  --red: var(--status-error);
+  --yellow: var(--status-warning);
+  --ssh: var(--tn-green);
+  --shell: var(--tn-cyan);
+  --transfer: var(--tn-blue);
+  --ftp: var(--tn-purple);
+  --terminal-bg: var(--component-terminal);
+  --terminal-row: var(--component-terminal-row);
+  --folder-back: var(--component-folder-back);
+  --folder-front: var(--component-folder-front);
+  --folder-highlight: var(--component-folder-highlight);
+}
+
+:root[data-theme='tokyo-night'] .top-toolbar,
+:root[data-theme='tokyo-night'] .status-bar,
+:root[data-theme='tokyo-night'] .tab-bar,
+:root[data-theme='tokyo-night'] .tab-tools,
+:root[data-theme='tokyo-night'] .split-pane-heading { background: var(--ui-toolbar); }
+
+:root[data-theme='tokyo-night'] .main-workspace,
+:root[data-theme='tokyo-night'] .workspace-pane-slot { background: var(--ui-canvas); }
+:root[data-theme='tokyo-night'] .top-toolbar,
+:root[data-theme='tokyo-night'] .tab-bar,
+:root[data-theme='tokyo-night'] .status-bar { border-color: transparent; }
+:root[data-theme='tokyo-night'] .explorer,
+:root[data-theme='tokyo-night'] .server-overview { border-color: transparent; }
+:root[data-theme='tokyo-night'] .tab-tools { border-left: 0; }
+
+:root[data-theme='tokyo-night'] .connection-context-menu,
+:root[data-theme='tokyo-night'] .tab-menu-popover { background: var(--component-menu); border-color: var(--ui-divider-soft); }
+:root[data-theme='tokyo-night'] .connection-context-menu button:hover,
+:root[data-theme='tokyo-night'] .tab-menu-popover button:hover { background: var(--ui-hover); }
+:root[data-theme='tokyo-night'] .field input,
+:root[data-theme='tokyo-night'] .field select,
+:root[data-theme='tokyo-night'] .field textarea { background: var(--component-input); border-color: var(--ui-divider); }
+
+:root[data-theme='tokyo-night'] .workspace-tab { border-right: 0; color: var(--component-tab-inactive); }
+:root[data-theme='tokyo-night'] .workspace-tab:hover { background: var(--ui-hover); }
+:root[data-theme='tokyo-night'] .workspace-tab.active {
+  color: var(--component-tab-active);
+  background: var(--ui-tabs);
+  box-shadow: inset 0 -2px var(--component-tab-indicator);
+}
+:root[data-theme='tokyo-night'] .workspace-tab.secondary { color: var(--ui-text-muted); background: var(--ui-tabs); box-shadow: none; }
+:root[data-theme='tokyo-night'] .workspace-tab.active .tab-title { color: var(--tab-color, var(--component-tab-active)); }
+:root[data-theme='tokyo-night'] .tab-connection-status.connected { background: var(--status-connected); }
+:root[data-theme='tokyo-night'] .tab-connection-status.error { background: var(--status-error); }
+:root[data-theme='tokyo-night'] .tab-connection-status.connecting { background: var(--status-warning); }
+:root[data-theme='tokyo-night'] .secure-dot,
+:root[data-theme='tokyo-night'] .status-dot { box-shadow: none; }
+:root[data-theme='tokyo-night'] .connection-row.selected { border-color: transparent; background: var(--ui-selected); }
+:root[data-theme='tokyo-night'] .view-switch button.active { border-color: transparent; color: var(--tn-blue); background: var(--ui-selected); }
+:root[data-theme='tokyo-night'] .workspace-pane-slot.focused > .split-pane-heading { box-shadow: inset 0 -1px var(--component-tab-indicator); }
+
+:root[data-theme='tokyo-night'] .database-tabs > button,
+:root[data-theme='tokyo-night'] .database-table-tab { border-right: 0; }
+:root[data-theme='tokyo-night'] .database-tabs > button.active,
+:root[data-theme='tokyo-night'] .database-table-tab.active {
+  border-top-color: transparent;
+  color: var(--component-tab-active);
+  background: var(--ui-tabs);
+  box-shadow: inset 0 -2px var(--component-tab-indicator);
+}
+:root[data-theme='tokyo-night'] .overview-card { border-color: transparent; background: var(--ui-surface); }
+:root[data-theme='tokyo-night'] .toolbar-button,
+:root[data-theme='tokyo-night'] .window-pill { border-color: var(--ui-divider-soft); background: var(--component-button); }
+:root[data-theme='tokyo-night'] .toolbar-button:hover:not(:disabled) { border-color: var(--ui-divider); background: var(--component-button-hover); }
+:root[data-theme='tokyo-night'] .toolbar-button.muted { background: transparent; }
+:root[data-theme='tokyo-night'] .button.primary { border-color: transparent; color: var(--tn-night); background: var(--tn-blue); }
+:root[data-theme='tokyo-night'] .button.danger { border-color: transparent; color: var(--tn-night); background: var(--status-error); }
+:root[data-theme='tokyo-night'] .connection-icon.database,
+:root[data-theme='tokyo-night'] .database-node > button > i,
+:root[data-theme='tokyo-night'] .schema-table > button i { color: var(--tn-purple); background: color-mix(in srgb, var(--tn-purple) 10%, transparent); }
+:root[data-theme='tokyo-night'] .schema-node > button > i { color: var(--tn-green); background: color-mix(in srgb, var(--tn-green) 10%, transparent); }
+
+:root[data-theme='tokyo-night'] .theme-select { color: var(--ui-text); background: var(--component-button); border-color: var(--ui-divider-soft); }

@@ -107,6 +107,8 @@ button:disabled { cursor: default; opacity: .42; }
 .toolbar-button:focus-visible, .icon-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--blue) 65%, transparent); outline-offset: 1px; }
 .toolbar-button.muted { color: var(--muted); background: transparent; }
 .toolbar-button.icon-only { display: grid; width: 30px; height: 30px; padding: 0; place-items: center; }
+.theme-select { height: 30px; max-width: 116px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); background: var(--panel-2); font-size: 11px; cursor: pointer; -webkit-app-region: no-drag; }
+.theme-select:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .window-pill { color: var(--blue); border-color: rgba(128,183,255,.35); background: rgba(128,183,255,.07); font-size: 12px; }
 .app-body { display: flex; min-height: 0; flex: 1; }
 .explorer { display: flex; width: 260px; min-width: 190px; max-width: 50vw; flex: 0 0 auto; flex-direction: column; overflow: hidden; resize: horizontal; border-right: 1px solid var(--line); background: var(--panel-3); }
@@ -294,6 +296,10 @@ kbd { padding: 2px 4px; border: 1px solid var(--line); border-radius: 3px; color
 .overview-card { margin: 10px 0 0; padding: 11px; border: 1px solid var(--line-soft); border-radius: 5px; background: var(--surface); }
 .overview-card h3 { display: flex; margin: 0 0 10px; align-items: center; color: var(--muted); font-size: 11px; font-weight: 600; }
 .overview-card h3 small { margin-left: auto; color: var(--text); }
+.overview-load > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.overview-load > div > span { display: flex; flex-direction: column; gap: 3px; padding: 8px; border-radius: 4px; background: var(--panel-2); }
+.overview-load small { color: var(--subtle); font: 10px var(--font-mono); }
+.overview-load strong { color: var(--text); font: 600 14px var(--font-mono); }
 .overview-basics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .overview-basics h3 { grid-column: 1 / -1; margin-bottom: 0; }
 .overview-basics div, .overview-metrics > div { min-width: 0; }

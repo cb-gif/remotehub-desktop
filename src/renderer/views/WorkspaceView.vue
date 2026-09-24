@@ -28,14 +28,13 @@ const statusValues = ref<Record<string, string | number>>({})
 const statusError = ref('')
 const statusText = computed(() => statusError.value || t(statusKey.value, statusValues.value))
 const shortcutModifier = computed(() => appInfo.value?.platform === 'darwin' ? '⌘' : 'Ctrl')
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'tokyo-night'
 const savedTheme = localStorage.getItem('remotehub.theme')
-const theme = ref<Theme>(savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+const theme = ref<Theme>(savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'tokyo-night' ? savedTheme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
 let removeFullscreenListener: (() => void) | undefined
 document.documentElement.dataset.theme = theme.value
 
-function toggleTheme(): void {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+function applyTheme(): void {
   document.documentElement.dataset.theme = theme.value
   localStorage.setItem('remotehub.theme', theme.value)
   if (window.api) void window.api.app.setTheme(theme.value).catch(() => undefined)
@@ -204,8 +203,8 @@ async function removeGroup(group: Group): Promise<void> {
   <div class="app-frame" :class="{ darwin: appInfo?.platform === 'darwin', fullscreen }">
     <header class="top-toolbar">
       <div class="brand"><img class="brand-mark" :src="appIcon" alt=""><div><strong>RemoteHub</strong><small>DESKTOP WORKBENCH</small></div></div>
-      <div class="toolbar-context" :style="{ '--workspace-color': activeConnectionColor }"><button class="toolbar-label" @click="workspace.activate('welcome')">{{ t('workspace') }}</button><span class="toolbar-separator">/</span><span>{{ workspace.activeTab?.title }}</span></div>
-      <div class="toolbar-actions"><button class="toolbar-button" @click="openCreate">＋ {{ t('newConnection') }}</button><button class="toolbar-button muted theme-toggle" :title="theme === 'dark' ? t('lightMode') : t('darkMode')" :aria-label="theme === 'dark' ? t('lightMode') : t('darkMode')" @click="toggleTheme">{{ theme === 'dark' ? '☀' : '☾' }}</button><button class="toolbar-button muted" @click="toggleLocale">{{ locale === 'zh-CN' ? 'EN' : '中文' }}</button></div>
+      <div class="toolbar-context" :style="{ '--workspace-color': activeConnectionColor }"><span v-if="workspace.activeTab?.connectionId">{{ workspace.activeTab.title }}</span></div>
+      <div class="toolbar-actions"><button class="toolbar-button" @click="openCreate">＋ {{ t('newConnection') }}</button><select v-model="theme" class="theme-select" :aria-label="t('themeLabel')" :title="t('themeLabel')" @change="applyTheme"><option value="dark">{{ t('darkMode') }}</option><option value="light">{{ t('lightMode') }}</option><option value="tokyo-night">Tokyo Night</option></select><button class="toolbar-button muted" @click="toggleLocale">{{ locale === 'zh-CN' ? 'EN' : '中文' }}</button></div>
     </header>
     <div class="app-body">
       <ConnectionExplorer :connections="connectionStore.filteredConnections" :groups="connectionStore.groups" :selected-id="connectionStore.selectedId" :search="connectionStore.search" @update:search="connectionStore.search = $event" @select="selectConnection" @sftp="openSftp" @create="openCreate" @edit="openEdit" @remove="removeConnection" @duplicate="duplicateConnection" @import-connections="importConnections" @export-connections="exportConnections" @test="testConnection" @move="moveConnection" @move-group="moveGroup" @create-group="createGroup" @edit-group="editGroup" @remove-group="removeGroup" />

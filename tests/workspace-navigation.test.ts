@@ -132,6 +132,18 @@ describe('independent workspace pane navigation', () => {
     workspace.$dispose()
   })
 
+  it('restores a connection instead of the removed Welcome tab and cycles only connections', () => {
+    const { workspace, ids } = setup()
+    workspace.restore(['server'], JSON.stringify({ tabs: workspace.tabs.slice(1), activeId: 'welcome', paneIds: ['welcome'] }))
+    expect(workspace.activeId).toBe(ids[0])
+    expect(workspace.visibleIds).toEqual([ids[0]])
+    workspace.cycle(1)
+    expect(workspace.activeId).toBe(ids[1])
+    workspace.cycle(-1)
+    expect(workspace.activeId).toBe(ids[0])
+    workspace.$dispose()
+  })
+
   it('reorders existing tab objects without moving panes, changing focus, or moving Welcome', () => {
     const { workspace, ids } = setup()
     workspace.setViewCount(4)

@@ -19,11 +19,11 @@ export function registerAppIpc(): void {
     return { ok: true }
   })
   ipcMain.handle('app:setTheme', (event, theme: string) => {
-    if (theme !== 'dark' && theme !== 'light') throw new Error('Theme is invalid')
+    if (theme !== 'dark' && theme !== 'light' && theme !== 'tokyo-night') throw new Error('Theme is invalid')
     const window = BrowserWindow.fromWebContents(event.sender)
-    const dark = theme === 'dark'
-    window?.setBackgroundColor(dark ? '#000000' : '#edf1f5')
-    if (process.platform !== 'darwin') window?.setTitleBarOverlay({ color: dark ? '#000000' : '#edf1f5', symbolColor: dark ? '#f7f9fc' : '#182230', height: 48 })
+    const background = theme === 'light' ? '#edf1f5' : theme === 'tokyo-night' ? '#16161e' : '#000000'
+    window?.setBackgroundColor(background)
+    if (process.platform !== 'darwin') window?.setTitleBarOverlay({ color: background, symbolColor: theme === 'light' ? '#182230' : '#c0caf5', height: 48 })
     return { ok: true }
   })
   ipcMain.handle('app:listLocalDirectory', (_event, requestedPath?: string) => listLocalDirectory(requestedPath, {

@@ -11,9 +11,7 @@ import SplitPane from './SplitPane.vue'
 import { t } from '../i18n'
 import { tabDragScroll, tabWheelDelta } from '../tab-navigation'
 import { connectionLabelColor } from '../connection-color'
-import ConnectionIcon from './ConnectionIcon.vue'
 import UiIcon from './UiIcon.vue'
-import appIcon from '../../../assets/remotehub.png'
 
 const DatabasePane = defineAsyncComponent(() => import('./DatabasePane.vue'))
 
@@ -145,11 +143,6 @@ function tabColor(connectionId?: string): string | undefined {
   return connectionLabelColor(connections.connections, connectionId)
 }
 
-function openConnection(connection: Connection): void {
-  connections.select(connection.id)
-  workspace.openConnection(connection.id, connection.name, connection.type === 'database' ? 'sql' : connection.type === 'ftp' ? 'sftp' : 'terminal')
-}
-
 function openActiveAgain(): void {
   const tab = workspace.activeTab
   if (tab?.connectionId && (tab.type === 'terminal' || tab.type === 'sftp' || tab.type === 'sql')) workspace.openConnection(tab.connectionId, tab.title, tab.type)
@@ -163,7 +156,7 @@ function handleShortcut(event: KeyboardEvent): void {
   const modifier = props.shortcutModifier === '⌘' ? event.metaKey : event.ctrlKey
   if (!modifier) return
   const key = event.key.toLowerCase()
-  if (/^[1-9]$/.test(key)) workspace.activate(workspace.tabs[Number(key) - 1]?.id || workspace.activeId)
+  if (/^[1-9]$/.test(key)) workspace.activate(workspace.tabs.filter(tab => tab.closable)[Number(key) - 1]?.id || workspace.activeId)
   else if (event.key === 'Tab') workspace.cycle(event.shiftKey ? -1 : 1)
   else if (key === 'w') event.shiftKey ? workspace.closeAll() : workspace.close(workspace.activeId)
   else if (key === 't') openActiveAgain()
@@ -210,7 +203,7 @@ function resizeWorkspaceWithKeyboard(axis: 'x' | 'y', event: KeyboardEvent): voi
   <section class="workspace-shell">
     <div class="tab-bar">
       <div ref="tabStrip" class="tab-strip" role="tablist" @wheel="scrollTabs" @dragover="dragOverStrip" @drop="dropTab($event)">
-        <div v-for="tab in workspace.tabs" :key="tab.id" class="workspace-tab" :class="{ active: workspace.activeId === tab.id, secondary: workspace.secondaryIds.includes(tab.id), dragging: draggingTabId === tab.id, 'drop-before': tabDrop?.id === tab.id && !tabDrop.after, 'drop-after': tabDrop?.id === tab.id && tabDrop.after }" :style="{ '--tab-color': tabColor(tab.connectionId) }" role="tab" :data-tab-id="tab.id" :draggable="tab.closable" :title="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :aria-label="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :tabindex="workspace.activeId === tab.id ? 0 : -1" :aria-selected="workspace.activeId === tab.id" @click="workspace.activate(tab.id)" @keydown.enter="workspace.activate(tab.id)" @dragstart="startTabDrag($event, tab.id)" @dragover="dragOverTab($event, tab.id)" @drop.stop="dropTab($event, tab.id)" @dragend="finishTabDrag">
+        <div v-for="tab in workspace.tabs.filter(item => item.closable)" :key="tab.id" class="workspace-tab" :class="{ active: workspace.activeId === tab.id, secondary: workspace.secondaryIds.includes(tab.id), dragging: draggingTabId === tab.id, 'drop-before': tabDrop?.id === tab.id && !tabDrop.after, 'drop-after': tabDrop?.id === tab.id && tabDrop.after }" :style="{ '--tab-color': tabColor(tab.connectionId) }" role="tab" :data-tab-id="tab.id" :draggable="tab.closable" :title="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :aria-label="tab.connectionId ? `${tab.title} · ${statusText(tab.id)}` : tab.title" :tabindex="workspace.activeId === tab.id ? 0 : -1" :aria-selected="workspace.activeId === tab.id" @click="workspace.activate(tab.id)" @keydown.enter="workspace.activate(tab.id)" @dragstart="startTabDrag($event, tab.id)" @dragover="dragOverTab($event, tab.id)" @drop.stop="dropTab($event, tab.id)" @dragend="finishTabDrag">
           <span class="tab-icon"><UiIcon :name="iconFor(tab.type)" /></span><span v-if="tab.connectionId" class="tab-connection-status" :class="statusFor(tab.id)" :data-status="statusFor(tab.id)" role="img" :aria-label="statusText(tab.id)" :title="statusText(tab.id)"></span><span class="tab-title">{{ tab.title }}</span><span v-if="tab.pinned" class="tab-pin" :title="t('pinnedTab')"><UiIcon name="pin" :size="12" /></span><button v-else-if="tab.closable" class="tab-close" :aria-label="t('closeTab')" @click.stop="workspace.close(tab.id)"><UiIcon name="close" :size="14" /></button>
         </div>
         <button class="new-tab" :title="`${t('newTab')} (${shortcutModifier} T)`" :aria-label="t('newTab')" :disabled="!workspace.activeTab?.connectionId" @click="openActiveAgain"><UiIcon name="plus" /></button>
@@ -233,22 +226,7 @@ function resizeWorkspaceWithKeyboard(axis: 'x' | 'y', event: KeyboardEvent): voi
       </div>
     </div>
     <div ref="workspaceContent" class="workspace-content" :class="`layout-${workspace.viewCount}`" :style="{ '--workspace-split-x': `${workspaceSplitX}%`, '--workspace-split-y': `${workspaceSplitY}%` }">
-      <div v-show="workspace.activeId === 'welcome'" class="welcome-view workspace-pane-slot primary">
-        <div class="welcome-heading">
-          <img class="welcome-glyph" :src="appIcon" alt=""><div><h1>{{ t('workspace') }}</h1><p>{{ t('allConnections') }}</p></div>
-        </div>
-        <div v-if="connections.connections.length" class="workspace-connections">
-          <button v-for="connection in connections.connections" :key="connection.id" class="workspace-connection-card" :title="t('doubleClick')" @dblclick="openConnection(connection)">
-            <ConnectionIcon :connection="connection" />
-            <span><strong>{{ connection.name }}</strong><small>{{ connection.type === 'shell' ? connection.host : connection.type === 'serial' ? `${connection.host} · ${connection.port} baud` : `${connection.host}:${connection.port}` }}</small></span>
-            <em>{{ connection.type === 'database' ? connection.databaseType : connection.type.toUpperCase() }}</em>
-          </button>
-        </div>
-        <div v-else class="workspace-empty">{{ t('emptyConnections') }}</div>
-        <div class="shortcut-grid">
-          <div><kbd>{{ shortcutModifier }} K</kbd><span>{{ t('searchShortcut') }}</span></div><div><kbd>{{ shortcutModifier }} N</kbd><span>{{ t('addShortcut') }}</span></div>
-        </div>
-      </div>
+      <div v-show="workspace.activeId === 'welcome'" class="welcome-view workspace-pane-slot primary"><div class="workspace-empty">{{ t('noSelection') }}</div></div>
       <template v-for="tab in workspace.tabs" :key="tab.id">
         <div v-if="tab.connectionId" v-show="workspace.isVisible(tab.id)" class="workspace-pane-slot" :class="{ focused: workspace.activeId === tab.id }" :style="panePosition(tab.id)" :data-pane-tab="tab.id" @pointerdown.capture="workspace.focusPane(tab.id)" @focusin.capture="workspace.focusPane(tab.id)">
           <div v-if="workspace.viewCount > 1" class="split-pane-heading"><select class="pane-connection-picker" :value="tab.id" :title="tab.title" :aria-label="t('selectViewConnection')" @change="workspace.showInPane(tab.id, ($event.target as HTMLSelectElement).value)"><option v-for="option in workspace.tabs.filter(item => item.closable)" :key="option.id" :value="option.id">{{ option.title }}</option></select><small v-if="workspace.activeId === tab.id">{{ t('focusedView') }}</small><button :title="t('closeView')" :aria-label="t('closeView')" @click.stop="workspace.closePane(tab.id)"><UiIcon name="close" /></button></div>

@@ -80,8 +80,19 @@ const statusTracker = createSessionStatusTracker((status, message) => {
 statusTracker.start()
 let columnResize: { key: string; startX: number; startWidth: number } | null = null
 
+const tokyoNightEditorTheme = EditorView.theme({
+  '&': { backgroundColor: 'var(--tn-canvas)', color: 'var(--tn-text)' },
+  '.cm-content': { caretColor: 'var(--tn-strong)' },
+  '.cm-cursor': { borderLeftColor: 'var(--tn-strong)' },
+  '.cm-activeLine': { backgroundColor: 'var(--tn-highlight)' },
+  '.cm-gutters': { backgroundColor: 'var(--tn-toolbar)', color: 'var(--tn-comment)', border: 'none' },
+  '.cm-activeLineGutter': { backgroundColor: 'var(--tn-highlight)', color: 'var(--tn-muted)' },
+  '.cm-selectionBackground': { backgroundColor: 'var(--ui-selected)' }
+}, { dark: true })
+
 function databaseEditorTheme() {
-  return document.documentElement.dataset.theme === 'light' ? [] : oneDark
+  const theme = document.documentElement.dataset.theme
+  return theme === 'light' ? [] : theme === 'tokyo-night' ? [oneDark, tokyoNightEditorTheme] : oneDark
 }
 
 function sectionsFor(source: DatabaseTable[]): { type: string; label: string; items: DatabaseTable[] }[] {

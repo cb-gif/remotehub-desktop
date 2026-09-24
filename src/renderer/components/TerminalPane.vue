@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Terminal } from 'xterm'
 import { terminalTheme } from '../terminal-theme'
 import { FitAddon } from 'xterm-addon-fit'
@@ -31,6 +31,10 @@ const contextMenu = ref<{ x: number; y: number } | null>(null)
 const hasSelection = ref(false)
 const overviewOpen = ref(false)
 const overview = ref<ServerStatus | null>(null)
+const loadAverageValues = computed(() => {
+  const values = overview.value?.loadAverage.trim().split(/\s+/) || []
+  return [values[0] || '—', values[1] || '—', values[2] || '—']
+})
 const overviewLoading = ref(false)
 const overviewError = ref('')
 const codexOpen = ref(false)
@@ -50,6 +54,7 @@ let removeContextMenuListener: (() => void) | undefined
 let terminalLayout: ReturnType<typeof observeTerminalLayout> | undefined
 let themeObserver: MutationObserver | undefined
 let codexRefreshTimer: number | undefined
+let overviewRefreshTimer: number | undefined
 let pendingTerminalEscape = ''
 const pendingData = new Map<string, string[]>()
 const pendingStatus = new Map<string, SshStatusEvent>()
@@ -100,7 +105,7 @@ function handleStatus(event: SshStatusEvent): void {
   }
   status.value = event.status
   statusMessage.value = event.message || ''
-  if (event.status !== 'connected') closeCodexStatus()
+  if (event.status !== 'connected') { closeCodexStatus(); closeOverview() }
 }
 
 function flushPending(id: string): void {
@@ -198,12 +203,20 @@ async function refreshOverview(): Promise<void> {
 }
 
 function toggleOverview(): void {
-  overviewOpen.value = !overviewOpen.value
-  if (overviewOpen.value) {
+  if (overviewOpen.value) closeOverview()
+  else {
     closeCodexStatus()
+    overviewOpen.value = true
     void refreshOverview()
+    overviewRefreshTimer = window.setInterval(() => { if (props.active) void refreshOverview() }, 15_000)
   }
   void nextTick(resizeTerminal)
+}
+
+function closeOverview(): void {
+  overviewOpen.value = false
+  if (overviewRefreshTimer !== undefined) window.clearInterval(overviewRefreshTimer)
+  overviewRefreshTimer = undefined
 }
 
 async function refreshCodexStatus(): Promise<void> {
@@ -230,7 +243,7 @@ function closeCodexStatus(): void {
 function toggleCodexStatus(): void {
   if (codexOpen.value) closeCodexStatus()
   else {
-    overviewOpen.value = false
+    closeOverview()
     codexOpen.value = true
     void refreshCodexStatus()
     codexRefreshTimer = window.setInterval(() => void refreshCodexStatus(), 120_000)
@@ -361,6 +374,7 @@ function selectAll(): void {
 async function disconnect(): Promise<void> {
   if (!sessionId) return
   closeCodexStatus()
+  closeOverview()
   const current = sessionId
   sessionId = null
   await (props.local ? window.api.shell.disconnect(current) : window.api.ssh.disconnect(current)).catch(() => undefined)
@@ -420,6 +434,7 @@ onBeforeUnmount(() => {
   disposed = true
   status.value = 'closed'
   closeCodexStatus()
+  closeOverview()
   removeDataListener?.()
   removeStatusListener?.()
   removeInputListener?.()
@@ -466,8 +481,12 @@ onBeforeUnmount(() => {
             <div><span>{{ t('user') }}</span><strong>{{ overview.user || '—' }}</strong></div><div><span>Host</span><strong :title="overview.host">{{ overview.host || '—' }}</strong></div>
             <div><span>{{ t('uptime') }}</span><strong>{{ formatUptime(overview.uptimeSeconds) }}</strong></div><div><span>{{ t('system') }}</span><strong :title="overview.os">{{ overview.os || overview.kernel || '—' }}</strong></div>
           </section>
+          <section class="overview-card overview-load">
+            <h3>{{ t('loadAverage') }}</h3>
+            <div><span v-for="(value, index) in loadAverageValues" :key="index"><small>{{ [1, 5, 15][index] }}m</small><strong>{{ value }}</strong></span></div>
+          </section>
           <section class="overview-card overview-metrics">
-            <div><span>{{ t('cpu') }}</span><strong>{{ overview.cpuPercent.toFixed(1) }}%</strong><small>{{ overview.cpuCores }} {{ t('cpuCores') }} · {{ t('loadAverage') }} {{ overview.loadAverage || '—' }}</small><progress max="100" :value="overview.cpuPercent"></progress></div>
+            <div><span>{{ t('cpu') }}</span><strong>{{ overview.cpuPercent.toFixed(1) }}%</strong><small>{{ overview.cpuCores }} {{ t('cpuCores') }}</small><progress max="100" :value="overview.cpuPercent"></progress></div>
             <div><span>{{ t('memory') }}</span><strong>{{ percent(overview.memoryUsedKb, overview.memoryTotalKb) }}%</strong><small>{{ formatBytes(overview.memoryUsedKb * 1024) }} / {{ formatBytes(overview.memoryTotalKb * 1024) }}</small><progress max="100" :value="percent(overview.memoryUsedKb, overview.memoryTotalKb)"></progress></div>
             <div><span>{{ t('swap') }}</span><strong>{{ percent(overview.swapUsedKb, overview.swapTotalKb) }}%</strong><small>{{ formatBytes(overview.swapUsedKb * 1024) }} / {{ formatBytes(overview.swapTotalKb * 1024) }}</small><progress max="100" :value="percent(overview.swapUsedKb, overview.swapTotalKb)"></progress></div>
             <div><span>{{ t('disk') }}</span><strong>{{ overview.diskPercent }}%</strong><small>{{ formatBytes(overview.diskUsedKb * 1024) }} / {{ formatBytes(overview.diskTotalKb * 1024) }}</small><progress max="100" :value="overview.diskPercent"></progress></div>
