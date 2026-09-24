@@ -1,6 +1,6 @@
 {
   "name": "remotehub-desktop",
-  "version": "0.1.0-beta.5",
+  "version": "0.1.0-beta.8",
   "private": true,
   "description": "Cross-platform SSH, SFTP, FTP and database workbench",
   "author": "cb-gif",
