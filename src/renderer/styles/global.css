@@ -321,7 +321,10 @@ kbd { padding: 2px 4px; border: 1px solid var(--line); border-radius: 3px; color
 .codex-quota-row > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; }
 .codex-quota-row > div span { color: var(--muted); }
 .codex-quota-row > div strong { color: var(--green); }
-.codex-quota-row progress { width: 100%; height: 7px; margin: 7px 0 3px; border: 0; border-radius: 5px; accent-color: var(--blue); }
+.codex-quota-row progress { width: 100%; height: 7px; margin: 7px 0 3px; overflow: hidden; border: 0; border-radius: 5px; appearance: none; background: color-mix(in srgb, var(--muted) 55%, var(--panel)); }
+.codex-quota-row progress::-webkit-progress-bar { background: color-mix(in srgb, var(--muted) 55%, var(--panel)); }
+.codex-quota-row progress::-webkit-progress-value { background: var(--green); }
+.codex-quota-row progress::-moz-progress-bar { background: var(--green); }
 .codex-quota-row > small { color: var(--subtle); font-size: 9px; }
 .codex-usage-summary { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: 9px; }
 .codex-usage-summary strong { display: block; margin-top: 3px; color: var(--text); font-size: 12px; }

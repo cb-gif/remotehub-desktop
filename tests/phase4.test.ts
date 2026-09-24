@@ -5,7 +5,7 @@ import { isValidBaudRate } from '../src/shared/serial'
 import { fileIcon, joinRemotePath, normalizeRemotePath, parentRemotePath, selectSftpPaths } from '../src/shared/sftp'
 import { localShellCommand, localShellName } from '../src/shared/local-shell'
 import { parseServerStatus } from '../src/shared/ssh'
-import { parseCodexStatus } from '../src/shared/codex'
+import { parseCodexStatus, remainingQuotaPercent } from '../src/shared/codex'
 import { useWorkspaceStore } from '../src/renderer/stores/workspace'
 import { fileVisual, fileVisualIcon } from '../src/renderer/file-icon'
 
@@ -109,6 +109,12 @@ describe('Phase 4 SFTP, serial, and private key files', () => {
     )
     expect(status).toMatchObject({ planType: 'plus', primary: { usedPercent: 82, windowDurationMins: 300 }, secondary: { usedPercent: 13 }, lifetimeTokens: 1000, checkedAt: 789 })
     expect(status.dailyUsageBuckets).toEqual([{ startDate: '2026-08-30', tokens: 700 }])
+  })
+
+  it('fills the quota bar according to available rather than used capacity', () => {
+    expect(remainingQuotaPercent({ usedPercent: 2 })).toBe(98)
+    expect(remainingQuotaPercent({ usedPercent: 79 })).toBe(21)
+    expect(remainingQuotaPercent({ usedPercent: 100 })).toBe(0)
   })
 
   it('opens independent SFTP and serial terminal tabs', () => {

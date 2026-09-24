@@ -5,6 +5,7 @@ import { terminalTheme } from '../terminal-theme'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
 import type { CodexRateWindow, CodexStatus, CodexDailyUsage } from '../../shared/codex'
+import { remainingQuotaPercent } from '../../shared/codex'
 import { withoutAnsiBackgrounds } from '../../shared/ansi'
 import type { ServerStatus, SshDataEvent, SshSessionStatus, SshStatusEvent } from '../../shared/ssh'
 import type { TabConnectionStatus } from '../../shared/connection-status'
@@ -269,10 +270,6 @@ function quotaWindowLabel(minutes: number): string {
   return t('quotaWindow', { hours: Math.round(minutes / 60) })
 }
 
-function remainingPercent(window: CodexRateWindow): number {
-  return Math.max(0, Math.round((100 - window.usedPercent) * 10) / 10)
-}
-
 function formatReset(timestamp: number): string {
   return timestamp ? new Date(timestamp * 1000).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 }
@@ -509,8 +506,8 @@ onBeforeUnmount(() => {
           <section class="overview-card codex-quota-card">
             <h3><span>{{ codexStatus.planType || 'Codex' }}</span><small>{{ t('lastChecked') }} {{ formatCheckedAt(codexStatus.checkedAt) }}</small></h3>
             <div v-for="quota in quotaWindows()" :key="quota.key" class="codex-quota-row">
-              <div><span>{{ quota.label }}</span><strong>{{ remainingPercent(quota.value) }}% {{ t('quotaRemaining') }}</strong></div>
-              <progress max="100" :value="quota.value.usedPercent"></progress>
+              <div><span>{{ quota.label }}</span><strong>{{ remainingQuotaPercent(quota.value) }}% {{ t('quotaRemaining') }}</strong></div>
+              <progress max="100" :value="remainingQuotaPercent(quota.value)" :aria-label="`${quota.label} ${t('quotaRemaining')}`"></progress>
               <small>{{ t('quotaUsed') }} {{ quota.value.usedPercent }}% · {{ t('resetsAt') }} {{ formatReset(quota.value.resetsAt) }}</small>
             </div>
             <p v-if="!quotaWindows().length" class="server-overview-state">{{ t('noQuotaData') }}</p>

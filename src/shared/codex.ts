@@ -19,6 +19,10 @@ export interface CodexStatus {
   checkedAt: number
 }
 
+export function remainingQuotaPercent(window: Pick<CodexRateWindow, 'usedPercent'>): number {
+  return Math.min(100, Math.max(0, Math.round((100 - window.usedPercent) * 10) / 10))
+}
+
 export function parseCodexStatus(rateResult: unknown, usageResult: unknown, checkedAt = Date.now()): CodexStatus {
   const rateLimits = record(record(rateResult).rateLimits)
   const summary = record(record(usageResult).summary)
