@@ -19,9 +19,9 @@ export function registerAppIpc(): void {
     return { ok: true }
   })
   ipcMain.handle('app:setTheme', (event, theme: string) => {
-    if (theme !== 'dark' && theme !== 'light' && theme !== 'tokyo-night') throw new Error('Theme is invalid')
+    if (theme !== 'dark' && theme !== 'light' && theme !== 'tokyo-night' && theme !== 'tokyo-storm') throw new Error('Theme is invalid')
     const window = BrowserWindow.fromWebContents(event.sender)
-    const background = theme === 'light' ? '#edf1f5' : theme === 'tokyo-night' ? '#16161e' : '#000000'
+    const background = theme === 'light' ? '#edf1f5' : theme === 'tokyo-night' ? '#16161e' : theme === 'tokyo-storm' ? '#1f2335' : '#000000'
     window?.setBackgroundColor(background)
     if (process.platform !== 'darwin') window?.setTitleBarOverlay({ color: background, symbolColor: theme === 'light' ? '#182230' : '#c0caf5', height: 48 })
     return { ok: true }

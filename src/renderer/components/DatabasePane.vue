@@ -92,7 +92,7 @@ const tokyoNightEditorTheme = EditorView.theme({
 
 function databaseEditorTheme() {
   const theme = document.documentElement.dataset.theme
-  return theme === 'light' ? [] : theme === 'tokyo-night' ? [oneDark, tokyoNightEditorTheme] : oneDark
+  return theme === 'light' ? [] : theme === 'tokyo-night' || theme === 'tokyo-storm' ? [oneDark, tokyoNightEditorTheme] : oneDark
 }
 
 function sectionsFor(source: DatabaseTable[]): { type: string; label: string; items: DatabaseTable[] }[] {

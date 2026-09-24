@@ -28,9 +28,9 @@ const statusValues = ref<Record<string, string | number>>({})
 const statusError = ref('')
 const statusText = computed(() => statusError.value || t(statusKey.value, statusValues.value))
 const shortcutModifier = computed(() => appInfo.value?.platform === 'darwin' ? '⌘' : 'Ctrl')
-type Theme = 'light' | 'dark' | 'tokyo-night'
+type Theme = 'light' | 'dark' | 'tokyo-night' | 'tokyo-storm'
 const savedTheme = localStorage.getItem('remotehub.theme')
-const theme = ref<Theme>(savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'tokyo-night' ? savedTheme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+const theme = ref<Theme>(savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'tokyo-night' || savedTheme === 'tokyo-storm' ? savedTheme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
 let removeFullscreenListener: (() => void) | undefined
 document.documentElement.dataset.theme = theme.value
 
@@ -204,7 +204,7 @@ async function removeGroup(group: Group): Promise<void> {
     <header class="top-toolbar">
       <div class="brand"><img class="brand-mark" :src="appIcon" alt=""><div><strong>RemoteHub</strong><small>DESKTOP WORKBENCH</small></div></div>
       <div class="toolbar-context" :style="{ '--workspace-color': activeConnectionColor }"><span v-if="workspace.activeTab?.connectionId">{{ workspace.activeTab.title }}</span></div>
-      <div class="toolbar-actions"><button class="toolbar-button" @click="openCreate">＋ {{ t('newConnection') }}</button><select v-model="theme" class="theme-select" :aria-label="t('themeLabel')" :title="t('themeLabel')" @change="applyTheme"><option value="dark">{{ t('darkMode') }}</option><option value="light">{{ t('lightMode') }}</option><option value="tokyo-night">Tokyo Night</option></select><button class="toolbar-button muted" @click="toggleLocale">{{ locale === 'zh-CN' ? 'EN' : '中文' }}</button></div>
+      <div class="toolbar-actions"><button class="toolbar-button" @click="openCreate">＋ {{ t('newConnection') }}</button><select v-model="theme" class="theme-select" :aria-label="t('themeLabel')" :title="t('themeLabel')" @change="applyTheme"><option value="dark">{{ t('darkMode') }}</option><option value="light">{{ t('lightMode') }}</option><option value="tokyo-night">Tokyo Night</option><option value="tokyo-storm">Tokyo Storm</option></select><button class="toolbar-button muted" @click="toggleLocale">{{ locale === 'zh-CN' ? 'EN' : '中文' }}</button></div>
     </header>
     <div class="app-body">
       <ConnectionExplorer :connections="connectionStore.filteredConnections" :groups="connectionStore.groups" :selected-id="connectionStore.selectedId" :search="connectionStore.search" @update:search="connectionStore.search = $event" @select="selectConnection" @sftp="openSftp" @create="openCreate" @edit="openEdit" @remove="removeConnection" @duplicate="duplicateConnection" @import-connections="importConnections" @export-connections="exportConnections" @test="testConnection" @move="moveConnection" @move-group="moveGroup" @create-group="createGroup" @edit-group="editGroup" @remove-group="removeGroup" />
