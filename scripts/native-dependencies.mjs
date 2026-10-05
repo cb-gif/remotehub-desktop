@@ -67,6 +67,9 @@ export async function rebuildNativeDependencies({ appDir, electronVersion, platf
     platform: targetPlatform,
     arch,
     mode: 'sequential',
+    // Electron 44's V8 headers use attributes rejected by Ubuntu's default GCC.
+    // Use Electron's matching Clang and sysroot for Linux native dependencies.
+    useElectronClang: targetPlatform === 'linux',
     ignoreModules
   })
   ensurePtyHelpersExecutable(ptyDirectory, targetPlatform, arch)
