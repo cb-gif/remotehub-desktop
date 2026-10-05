@@ -42,6 +42,12 @@ export function ensurePtyHelpersExecutable(moduleDirectory, platform, arch, io =
 export async function rebuildNativeDependencies({ appDir, electronVersion, platform = process.platform, arch = process.arch }) {
   const targetPlatform = typeof platform === 'string' ? platform : platform.nodeName
   if (targetPlatform !== process.platform) throw new Error('Build native dependencies on their target operating system')
+  // Electron 44's V8 headers use attributes rejected by Ubuntu's default GCC.
+  // Prefer installed Clang without adding a separate compiler/sysroot download.
+  if (targetPlatform === 'linux') {
+    process.env.CC ||= 'clang'
+    process.env.CXX ||= 'clang++'
+  }
   const require = createRequire(join(appDir, 'package.json'))
   const ptyDirectory = dirname(require.resolve('node-pty/package.json'))
   // node-pty ships Node-API binaries and helper executables on Windows/macOS.
@@ -67,9 +73,6 @@ export async function rebuildNativeDependencies({ appDir, electronVersion, platf
     platform: targetPlatform,
     arch,
     mode: 'sequential',
-    // Electron 44's V8 headers use attributes rejected by Ubuntu's default GCC.
-    // Use Electron's matching Clang and sysroot for Linux native dependencies.
-    useElectronClang: targetPlatform === 'linux',
     ignoreModules
   })
   ensurePtyHelpersExecutable(ptyDirectory, targetPlatform, arch)
