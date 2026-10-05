@@ -69,6 +69,7 @@ export interface DatabaseCsvExport {
   fileName: string
   columns: string[]
   rows: DatabaseCell[][]
+  spreadsheetSafe?: boolean
 }
 
 export interface DatabaseCellDetail {
@@ -125,7 +126,8 @@ export function databaseResultToCsv(input: DatabaseCsvExport): string {
   }
   const width = input.columns.length
   if (!width || input.rows.some((row) => !Array.isArray(row) || row.length !== width)) throw databaseInputError('DATABASE_EXPORT_INVALID', 'Export rows do not match the columns')
-  return [input.columns, ...input.rows].map((row) => row.map(csvCell).join(',')).join('\r\n')
+  if (input.spreadsheetSafe !== undefined && typeof input.spreadsheetSafe !== 'boolean') throw databaseInputError('DATABASE_EXPORT_INVALID', 'CSV export mode is invalid')
+  return [input.columns, ...input.rows].map((row) => row.map((value) => csvCell(value, input.spreadsheetSafe !== false)).join(',')).join('\r\n')
 }
 
 export function parseDatabaseCsv(source: string): { columns: string[]; rows: DatabaseCell[][] } {
@@ -178,8 +180,11 @@ export function databaseCellDetail(value: DatabaseCell): DatabaseCellDetail {
   }
 }
 
-function csvCell(value: DatabaseCell): string {
+function csvCell(value: DatabaseCell, spreadsheetSafe: boolean): string {
   const text = value == null ? '' : String(value)
+  // Keep numeric cells numeric. Text and headings must not become formulas when
+  // opened in a spreadsheet; quote the protective tab as part of the field.
+  if (spreadsheetSafe && typeof value === 'string' && /^(?:[\s\u0000-\u001f]*[=+@\-＝＋＠－]|[\t\r\n])/.test(text)) return `"\t${text.replaceAll('"', '""')}"`
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 

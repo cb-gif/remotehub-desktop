@@ -1,14 +1,15 @@
-import { dialog, ipcMain } from 'electron'
+import { dialog } from 'electron'
+import { handleIpc } from './security'
 import { createConnection } from 'node:net'
 import { readFile, stat, writeFile } from 'node:fs/promises'
-import { connectionErrorCode, createConnectionExport, parseConnectionExport } from '../../shared/connection'
+import { canRetainImportedCredential, connectionErrorCode, createConnectionExport, parseConnectionExport } from '../../shared/connection'
 import type { Connection, ConnectionOrderItem, ConnectionSaveRequest, ConnectionTestRequest, ConnectionTestResult } from '../../shared/types'
 import { CredentialService } from '../services/credentials'
 import { appError, StorageService } from '../services/storage'
 
 export function registerConnectionIpc(storage: StorageService, credentials: CredentialService, testSerial?: (connection: Connection) => Promise<ConnectionTestResult>, testDatabase?: (connection: Connection, credential?: string) => Promise<ConnectionTestResult>): void {
-  ipcMain.handle('connections:list', () => ({ connections: storage.listConnections(), groups: storage.listGroups() }))
-  ipcMain.handle('connections:save', (_event, request: ConnectionSaveRequest) => {
+  handleIpc('connections:list', () => ({ connections: storage.listConnections(), groups: storage.listGroups() }))
+  handleIpc('connections:save', (_event, request: ConnectionSaveRequest) => {
     if (!request || typeof request !== 'object' || !request.connection || typeof request.connection !== 'object') throw appError('INVALID_CONNECTION', 'Connection input is invalid')
     if (request.credential !== undefined && typeof request.credential !== 'string') throw appError('INVALID_CREDENTIAL', 'Credential is invalid')
     if (request.privateKeyPath !== undefined && typeof request.privateKeyPath !== 'string') throw appError('PRIVATE_KEY_FILE_INVALID', 'Private key file path is invalid')
@@ -29,22 +30,22 @@ export function registerConnectionIpc(storage: StorageService, credentials: Cred
     if ((request.clearCredential || request.connection.type === 'serial' || request.connection.type === 'shell') && previousCredentialId && !storage.hasCredentialReference(previousCredentialId)) credentials.delete(previousCredentialId)
     return connection
   })
-  ipcMain.handle('connections:delete', (_event, id: string) => {
+  handleIpc('connections:delete', (_event, id: string) => {
     const credentialId = storage.getConnection(id)?.credentialId
     storage.deleteConnection(id)
     if (credentialId && !storage.hasCredentialReference(credentialId)) credentials.delete(credentialId)
     return { ok: true }
   })
-  ipcMain.handle('connections:duplicate', (_event, id: string) => storage.duplicateConnection(id))
-  ipcMain.handle('connections:reorder', (_event, items: ConnectionOrderItem[]) => storage.reorderConnections(items))
-  ipcMain.handle('connections:export', async () => {
+  handleIpc('connections:duplicate', (_event, id: string) => storage.duplicateConnection(id))
+  handleIpc('connections:reorder', (_event, items: ConnectionOrderItem[]) => storage.reorderConnections(items))
+  handleIpc('connections:export', async () => {
     const result = await dialog.showSaveDialog({ title: 'Export connections', defaultPath: 'remotehub-connections.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
     if (result.canceled || !result.filePath) return { canceled: true, count: 0 }
     const data = createConnectionExport(storage.listConnections(), storage.listGroups())
     await writeFile(result.filePath, JSON.stringify(data, null, 2), 'utf8')
     return { canceled: false, count: data.connections.length }
   })
-  ipcMain.handle('connections:import', async () => {
+  handleIpc('connections:import', async () => {
     const result = await dialog.showOpenDialog({ title: 'Import connections', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] })
     const filePath = result.filePaths[0]
     if (result.canceled || !filePath) return { canceled: true, count: 0 }
@@ -57,13 +58,16 @@ export function registerConnectionIpc(storage: StorageService, credentials: Cred
     })
     data.groups.sort((a, b) => a.sortOrder - b.sortOrder).forEach((group) => storage.saveGroup(group.name, group.id))
     data.connections.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).forEach((connection) => {
-      const previousCredentialId = storage.getConnection(connection.id!)?.credentialId
-      storage.saveConnection({ ...connection, credentialId: previousCredentialId })
+      const previous = storage.getConnection(connection.id!)
+      const previousCredentialId = previous?.credentialId
+      const normalized = storage.validateConnection(connection)
+      const credentialId = canRetainImportedCredential(previous, normalized) ? previousCredentialId : undefined
+      storage.saveConnection({ ...connection, credentialId })
       if (previousCredentialId && !storage.hasCredentialReference(previousCredentialId)) credentials.delete(previousCredentialId)
     })
     return { canceled: false, count: data.connections.length }
   })
-  ipcMain.handle('connections:test', async (_event, target: string | ConnectionTestRequest) => {
+  handleIpc('connections:test', async (_event, target: string | ConnectionTestRequest) => {
     const request = typeof target === 'string' ? undefined : target
     if (request && (typeof request !== 'object' || !request.connection || typeof request.connection !== 'object')) throw appError('INVALID_CONNECTION', 'Connection input is invalid')
     if (request?.credential !== undefined && typeof request.credential !== 'string') throw appError('INVALID_CREDENTIAL', 'Credential is invalid')
@@ -81,9 +85,9 @@ export function registerConnectionIpc(storage: StorageService, credentials: Cred
     if (result.ok && typeof target === 'string') storage.markConnected(target, result.testedAt)
     return result
   })
-  ipcMain.handle('groups:save', (_event, name: string, id?: string) => storage.saveGroup(name, id))
-  ipcMain.handle('groups:reorder', (_event, ids: string[]) => storage.reorderGroups(ids))
-  ipcMain.handle('groups:delete', (_event, id: string) => {
+  handleIpc('groups:save', (_event, name: string, id?: string) => storage.saveGroup(name, id))
+  handleIpc('groups:reorder', (_event, ids: string[]) => storage.reorderGroups(ids))
+  handleIpc('groups:delete', (_event, id: string) => {
     storage.deleteGroup(id)
     return { ok: true }
   })

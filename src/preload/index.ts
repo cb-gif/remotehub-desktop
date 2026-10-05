@@ -8,6 +8,28 @@ import type { DatabaseCsvExport, DatabaseQueryRequest } from '../shared/database
 import type { LocalShellDataEvent, LocalShellStatusEvent } from '../shared/local-shell'
 import type { LocalDirectory } from '../shared/local-files'
 
+// Filter before crossing contextBridge: a chunk for one session must not invoke
+// callbacks (or fill pending queues) in every other terminal in the workspace.
+const sshDataListeners = new Map<string, Set<(event: SshDataEvent) => void>>()
+const dispatchSshData = (_event: Electron.IpcRendererEvent, payload: SshDataEvent): void => {
+  sshDataListeners.get(payload.sessionId)?.forEach(listener => listener(payload))
+}
+
+function subscribeSshData(listener: (event: SshDataEvent) => void, sessionId: string): () => void {
+  if (!sshDataListeners.size) ipcRenderer.on('ssh:data', dispatchSshData)
+  const listeners = sshDataListeners.get(sessionId) || new Set()
+  listeners.add(listener)
+  sshDataListeners.set(sessionId, listeners)
+  let removed = false
+  return () => {
+    if (removed) return
+    removed = true
+    listeners.delete(listener)
+    if (!listeners.size) sshDataListeners.delete(sessionId)
+    if (!sshDataListeners.size) ipcRenderer.removeListener('ssh:data', dispatchSshData)
+  }
+}
+
 function remoteFiles(prefix: 'sftp' | 'ftp') {
   return {
     connect: (connectionId: string, options?: SshPasswordOptions) => ipcRenderer.invoke(`${prefix}:connect`, connectionId, options),
@@ -79,19 +101,16 @@ const api = {
     test: (target: string | ConnectionTestRequest) => ipcRenderer.invoke('connections:test', target)
   },
   ssh: {
-    connect: (connectionId: string, options?: SshPasswordOptions) => ipcRenderer.invoke('ssh:connect', connectionId, options),
+    connect: (connectionId: string, options?: SshPasswordOptions, sessionId?: string) => ipcRenderer.invoke('ssh:connect', connectionId, options, sessionId),
     trustHostKey: (connectionId: string, fingerprint: string) => ipcRenderer.invoke('ssh:trustHostKey', connectionId, fingerprint),
     hasSessionCredential: (connectionId: string): Promise<boolean> => ipcRenderer.invoke('ssh:hasSessionCredential', connectionId),
     write: (sessionId: string, data: string) => ipcRenderer.invoke('ssh:write', sessionId, data),
+    acknowledgeOutput: (sessionId: string, sequence: number) => ipcRenderer.invoke('ssh:acknowledgeOutput', sessionId, sequence),
     resize: (sessionId: string, cols: number, rows: number) => ipcRenderer.invoke('ssh:resize', sessionId, cols, rows),
     statusOverview: (sessionId: string) => ipcRenderer.invoke('ssh:statusOverview', sessionId),
     codexStatus: (sessionId: string) => ipcRenderer.invoke('ssh:codexStatus', sessionId),
     disconnect: (sessionId: string) => ipcRenderer.invoke('ssh:disconnect', sessionId),
-    onData: (listener: (event: SshDataEvent) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: SshDataEvent): void => listener(payload)
-      ipcRenderer.on('ssh:data', handler)
-      return () => ipcRenderer.removeListener('ssh:data', handler)
-    },
+    onData: subscribeSshData,
     onStatus: (listener: (event: SshStatusEvent) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: SshStatusEvent): void => listener(payload)
       ipcRenderer.on('ssh:status', handler)

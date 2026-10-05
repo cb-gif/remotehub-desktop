@@ -23,7 +23,6 @@ type SftpLike = {
   stat(path: string, callback: (error: Error | undefined, attrs: SftpAttrs) => void): void
   mkdir(path: string, callback: (error?: Error) => void): void
   rename(oldPath: string, newPath: string, callback: (error?: Error) => void): void
-  readFile(path: string, callback: (error: Error | undefined, data: Buffer) => void): void
   writeFile(path: string, data: Buffer, callback: (error?: Error) => void): void
   setstat(path: string, attrs: { atime: number; mtime: number }, callback: (error?: Error) => void): void
   unlink(path: string, callback: (error?: Error) => void): void
@@ -164,9 +163,22 @@ export class SftpService {
     const attrs = await this.remoteStat(session.sftp, path)
     if (!attrs) throw appError('SFTP_PATH_NOT_FOUND', 'Remote file no longer exists')
     if (Number(attrs.size || 0) > MAX_EDIT_BYTES) throw appError('SFTP_EDIT_TOO_LARGE', 'Online editing supports text files up to 2 MB')
-    const data = await new Promise<Buffer>((resolve, reject) => session.sftp.readFile(path, (error, value) => error ? reject(toSftpError(error)) : resolve(value)))
-    // ponytail: the built-in editor is UTF-8 text-only; use download/upload when binary or larger-file editing is needed.
-    if (data.length > MAX_EDIT_BYTES) throw appError('SFTP_EDIT_TOO_LARGE', 'Online editing supports text files up to 2 MB')
+    // Server metadata may be stale or false; enforce the limit while reading.
+    const stream = session.sftp.createReadStream(path, {})
+    const chunks: Buffer[] = []
+    let size = 0
+    try {
+      for await (const chunk of stream) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        size += buffer.length
+        if (size > MAX_EDIT_BYTES) throw appError('SFTP_EDIT_TOO_LARGE', 'Online editing supports text files up to 2 MB')
+        chunks.push(buffer)
+      }
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'SFTP_EDIT_TOO_LARGE') throw error
+      throw toSftpError(error)
+    } finally { stream.destroy() }
+    const data = Buffer.concat(chunks, size)
     if (!isUtf8(data) || data.includes(0)) throw appError('SFTP_EDIT_BINARY', 'Online editing supports UTF-8 text files only')
     return { content: data.toString('utf8'), modifiedAt: Number(attrs.mtime || 0) * 1000 }
   }

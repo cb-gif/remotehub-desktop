@@ -17,6 +17,7 @@ const connection = computed(() => connections.connections.find((item) => item.id
 const isPostgres = computed(() => connection.value?.databaseType === 'postgres')
 const isSqlite = computed(() => connection.value?.databaseType === 'sqlite')
 const databaseDialect = ref<DatabaseAdapterType | null>(null)
+const spreadsheetSafeExport = ref(true)
 type EditableRow = { values: DatabaseCell[]; original?: DatabaseCell[]; selected: boolean }
 
 const editorHost = ref<HTMLElement | null>(null)
@@ -695,7 +696,8 @@ async function exportResult(): Promise<void> {
     await window.api.database.exportCsv({
       fileName: `remotehub-results-page-${result.value.page + 1}.csv`,
       columns: result.value.columns.map((column) => column.name),
-      rows: displayRows.value
+      rows: displayRows.value,
+      spreadsheetSafe: spreadsheetSafeExport.value
     })
   } catch (error) { showError(error) }
 }
@@ -839,6 +841,7 @@ onBeforeUnmount(() => {
           <div class="result-toolbar">
             <strong>{{ workspaceMode === 'table' && activeTable ? isPostgres ? `${activeTable.database}.${activeTable.name}` : activeTable.name : t('resultGrid') }}</strong>
             <small v-if="workspaceMode !== 'table' || pendingChangeCount">{{ workspaceMode === 'table' ? t('pendingChanges', { count: pendingChangeCount }) : resultSummary }}</small>
+            <select v-if="result?.kind === 'rows'" v-model="spreadsheetSafeExport" :aria-label="t('csvExportMode')" :title="t('csvExportMode')"><option :value="true">{{ t('csvSpreadsheet') }}</option><option :value="false">{{ t('csvRaw') }}</option></select>
             <label v-if="result?.kind === 'rows' && (workspaceMode === 'sql' || filterVisible)" class="row-filter"><span>⌕</span><input v-model="rowFilter" :placeholder="t('filterRows')"></label>
             <button class="toolbar-button muted icon-only" :title="t('refresh')" :aria-label="t('refresh')" :disabled="!result || running || (workspaceMode === 'table' && Boolean(pendingChangeCount))" @click="refreshResult">↻</button>
             <template v-if="workspaceMode === 'table'">

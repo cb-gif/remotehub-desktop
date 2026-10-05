@@ -12,6 +12,7 @@ import type { TabConnectionStatus } from '../../shared/connection-status'
 import { t } from '../i18n'
 import { loadTerminalFont, observeTerminalLayout } from '../terminal-layout'
 import { terminalClipboardKeyHandler } from '../terminal-clipboard'
+import { createTerminalOutput } from '../terminal-output'
 import UiIcon from './UiIcon.vue'
 import type { SshPasswordOptions } from '../../shared/ssh'
 import { useConnectionStore } from '../stores/connection'
@@ -57,6 +58,7 @@ let themeObserver: MutationObserver | undefined
 let codexRefreshTimer: number | undefined
 let overviewRefreshTimer: number | undefined
 let pendingTerminalEscape = ''
+let terminalOutput: ReturnType<typeof createTerminalOutput> | undefined
 const pendingData = new Map<string, string[]>()
 const pendingStatus = new Map<string, SshStatusEvent>()
 
@@ -67,15 +69,17 @@ function terminalContrastRatio(): number {
   return 4.5
 }
 
-function writeTerminal(data: string): void {
+function writeTerminal(data: string, done?: () => void): void {
+  if (!terminal) { done?.(); return }
   if (document.documentElement.dataset.theme !== 'light' && document.documentElement.dataset.theme !== 'tokyo-light') {
-    terminal?.write(pendingTerminalEscape + data)
+    terminal.write(pendingTerminalEscape + data, done)
     pendingTerminalEscape = ''
     return
   }
   const filtered = withoutAnsiBackgrounds(pendingTerminalEscape + data)
   pendingTerminalEscape = filtered.remainder
-  terminal?.write(filtered.output)
+  if (filtered.output) terminal.write(filtered.output, done)
+  else done?.()
 }
 
 const statusLabel = (): string => {
@@ -89,14 +93,17 @@ const unavailableMessage = (): string => t(props.local ? 'localShellUnavailable'
 
 function handleData(event: SshDataEvent): void {
   if (event.sessionId !== sessionId) {
-    if (!sessionId && status.value === 'connecting') {
+    if (props.local && !sessionId && status.value === 'connecting') {
       const queued = pendingData.get(event.sessionId) || []
       queued.push(event.data)
       pendingData.set(event.sessionId, queued)
     }
     return
   }
-  writeTerminal(event.data)
+  if (props.local) writeTerminal(event.data)
+  else terminalOutput?.enqueue(event.data, () => {
+    if (!disposed && sessionId === event.sessionId && event.sequence !== undefined) void window.api.ssh.acknowledgeOutput(event.sessionId, event.sequence).catch(() => undefined)
+  })
 }
 
 function handleStatus(event: SshStatusEvent): void {
@@ -111,7 +118,7 @@ function handleStatus(event: SshStatusEvent): void {
 
 function flushPending(id: string): void {
   const queued = pendingData.get(id) || []
-  queued.forEach(writeTerminal)
+  queued.forEach(data => writeTerminal(data))
   const previousStatus = pendingStatus.get(id)
   if (previousStatus) {
     status.value = previousStatus.status
@@ -128,10 +135,13 @@ function resizeTerminal(): void {
 async function connect(): Promise<void> {
   if (connecting || disposed) return
   connecting = true
+  if (!props.local) removeDataListener?.()
+  terminalOutput?.dispose()
   if (sessionId) {
     await (props.local ? window.api.shell.disconnect(sessionId) : window.api.ssh.disconnect(sessionId)).catch(() => undefined)
     sessionId = null
   }
+  if (disposed) { connecting = false; return }
   status.value = 'connecting'
   statusMessage.value = ''
   pendingFingerprint.value = ''
@@ -146,9 +156,7 @@ async function connect(): Promise<void> {
   terminal?.clear()
   try {
     if (!props.local && !pendingPassword) {
-      const { connections } = await window.api.connections.list()
-      if (disposed) return
-      const connection = connections.find((item: { id: string }) => item.id === props.connectionId)
+      const connection = connectionStore.connections.find(item => item.id === props.connectionId)
       if (connection?.authType === 'none') {
         const answer = await sshPassword.request(connection.id, `${connection.name} · ${connection.username || ''}@${connection.host}`, 'ssh')
         if (answer.status !== 'submitted' || disposed) {
@@ -159,12 +167,22 @@ async function connect(): Promise<void> {
         pendingPassword = answer.options
       }
     }
-    const result = props.local ? await window.api.shell.connect(props.connectionId) : await window.api.ssh.connect(props.connectionId, pendingPassword)
+    if (!props.local) {
+      // Subscribe before connecting so the shell banner and early output have a
+      // single owner; no per-pane buffering of other sessions is needed.
+      sessionId = crypto.randomUUID()
+      terminalOutput = createTerminalOutput(writeTerminal, () => props.active && document.visibilityState !== 'hidden')
+      removeDataListener = window.api.ssh.onData(handleData, sessionId)
+    }
+    const result = props.local ? await window.api.shell.connect(props.connectionId) : await window.api.ssh.connect(props.connectionId, pendingPassword, sessionId!)
     if ('trustRequired' in result && result.trustRequired) {
       if (disposed) return
       pendingData.clear()
       pendingStatus.clear()
       pendingFingerprint.value = result.fingerprint
+      sessionId = null
+      removeDataListener?.()
+      terminalOutput?.dispose()
       status.value = 'error'
       statusMessage.value = ''
       return
@@ -176,10 +194,11 @@ async function connect(): Promise<void> {
     sessionId = result.sessionId
     if (pendingPassword?.savePassword) void connectionStore.load().catch(() => undefined)
     pendingPassword = undefined
-    status.value = 'connected'
+    if (props.local || status.value === 'connecting') status.value = 'connected'
     flushPending(result.sessionId)
     resizeTerminal()
   } catch (error) {
+    if (!props.local) { sessionId = null; removeDataListener?.(); terminalOutput?.dispose() }
     pendingPassword = undefined
     status.value = 'error'
     statusMessage.value = error instanceof Error ? error.message : unavailableMessage()
@@ -247,7 +266,7 @@ function toggleCodexStatus(): void {
     closeOverview()
     codexOpen.value = true
     void refreshCodexStatus()
-    codexRefreshTimer = window.setInterval(() => void refreshCodexStatus(), 120_000)
+    codexRefreshTimer = window.setInterval(() => { if (props.active && document.visibilityState !== 'hidden') void refreshCodexStatus() }, 120_000)
   }
   void nextTick(resizeTerminal)
 }
@@ -383,7 +402,7 @@ onMounted(async () => {
   if (disposed || !terminalHost.value) return
   terminal = new Terminal({
     convertEol: true,
-    cursorBlink: true,
+    cursorBlink: props.active,
     fontFamily: '"JetBrains Mono", "Noto Sans SC", serif',
     fontSize: 14,
     lineHeight: 1.2,
@@ -402,7 +421,7 @@ onMounted(async () => {
   terminalLayout = observeTerminalLayout(terminalHost.value, terminal, fitAddon, () => {
     if (sessionId && terminal) void (props.local ? window.api.shell.resize(sessionId, terminal.cols, terminal.rows) : window.api.ssh.resize(sessionId, terminal.cols, terminal.rows)).catch(() => undefined)
   })
-  removeDataListener = props.local ? window.api.shell.onData(handleData) : window.api.ssh.onData(handleData)
+  if (props.local) removeDataListener = window.api.shell.onData(handleData)
   removeStatusListener = props.local ? window.api.shell.onStatus(handleStatus) : window.api.ssh.onStatus(handleStatus)
   const input = terminal.onData((data) => {
     if (sessionId) void (props.local ? window.api.shell.write(sessionId, data) : window.api.ssh.write(sessionId, data)).catch((error) => {
@@ -423,7 +442,8 @@ onMounted(async () => {
 })
 
 watch(() => props.active, (active) => {
-  if (active) void nextTick(resizeTerminal)
+  if (terminal) terminal.options.cursorBlink = active
+  if (active) { terminalOutput?.flush(); void nextTick(resizeTerminal) }
 })
 
 onBeforeUnmount(() => {
@@ -433,6 +453,7 @@ onBeforeUnmount(() => {
   closeCodexStatus()
   closeOverview()
   removeDataListener?.()
+  terminalOutput?.dispose()
   removeStatusListener?.()
   removeInputListener?.()
   removeSelectionListener?.()

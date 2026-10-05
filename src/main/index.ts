@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, session } from 'electron'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { configureIpcSecurity } from './ipc/security'
 import { registerAppIpc } from './ipc/app.ipc'
 import { registerConnectionIpc } from './ipc/connection.ipc'
 import { registerSshIpc } from './ipc/ssh.ipc'
@@ -33,6 +35,9 @@ let ftp: FtpService | null = null
 let serial: SerialService | null = null
 let database: DatabaseService | null = null
 let localShell: LocalShellService | null = null
+const development = !app.isPackaged && app.commandLine.hasSwitch('dev')
+const rendererFile = join(__dirname, '..', '..', 'dist', 'index.html')
+configureIpcSecurity(() => mainWindow?.webContents || null, development ? 'http://127.0.0.1:5173/' : pathToFileURL(rendererFile).href)
 
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
@@ -56,17 +61,21 @@ async function createWindow(): Promise<void> {
 
   mainWindow.webContents.setZoomFactor(1.2)
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  mainWindow.webContents.on('will-frame-navigate', (event) => event.preventDefault())
+  mainWindow.webContents.on('will-redirect', (event) => event.preventDefault())
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
   mainWindow.on('enter-full-screen', () => mainWindow?.webContents.send('app:fullscreen-changed', true))
   mainWindow.on('leave-full-screen', () => mainWindow?.webContents.send('app:fullscreen-changed', false))
   if (!smokeDirectory) mainWindow.on('close', (event) => {
     event.preventDefault()
     mainWindow?.webContents.send('app:close-requested')
   })
-  if (!app.isPackaged && app.commandLine.hasSwitch('dev')) {
+  if (development) {
     await mainWindow.loadURL('http://127.0.0.1:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    await mainWindow.loadFile(join(__dirname, '..', '..', 'dist', 'index.html'))
+    await mainWindow.loadFile(rendererFile)
   }
   mainWindow.on('closed', () => { mainWindow = null })
   if (smokeDirectory) {
@@ -79,6 +88,7 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
+  session.defaultSession.setPermissionCheckHandler(() => false)
   storage = new StorageService()
   const credentials = new CredentialService()
   ssh = new SshService(storage, credentials, (channel, payload) => mainWindow?.webContents.send(channel, payload))

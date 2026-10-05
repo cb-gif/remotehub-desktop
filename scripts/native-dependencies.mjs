@@ -10,6 +10,21 @@ export function hasPtyPrebuild(moduleDirectory, platform, arch) {
   return files.length > 0 && files.every(file => existsSync(join(moduleDirectory, 'prebuilds', `${platform}-${arch}`, file)))
 }
 
+export function hasPortablePrebuild(name, moduleDirectory, platform, arch, libc = 'glibc') {
+  if (!['win32', 'darwin', 'linux'].includes(platform) || !['x64', 'arm64'].includes(arch)) return false
+  if (name === 'better-sqlite3') {
+    const target = platform === 'linux' && libc === 'musl' ? 'linuxmusl' : platform
+    return existsSync(join(moduleDirectory, 'prebuilds', `${target}-${arch}.node`))
+  }
+  if (name === '@serialport/bindings-cpp') {
+    const target = platform === 'darwin' ? 'darwin-x64+arm64' : `${platform}-${arch}`
+    const arm = arch === 'arm64' && platform !== 'darwin' ? '.armv8' : ''
+    const suffix = platform === 'linux' ? `.${libc}` : ''
+    return existsSync(join(moduleDirectory, 'prebuilds', target, `@serialport+bindings-cpp${arm}${suffix}.node`))
+  }
+  return false
+}
+
 export function ensurePtyHelpersExecutable(moduleDirectory, platform, arch, io = { existsSync, statSync, chmodSync }) {
   if (platform !== 'darwin') return
   // node-pty 1.1.0's npm tarball ships its macOS spawn-helper with mode 0644.
@@ -34,6 +49,17 @@ export async function rebuildNativeDependencies({ appDir, electronVersion, platf
   // would require an additional Spectre-enabled Visual Studio toolchain.
   const usePtyPrebuild = hasPtyPrebuild(ptyDirectory, targetPlatform, arch)
   console.log(`node-pty: ${usePtyPrebuild ? 'using bundled Node-API prebuilds' : 'building for Electron'} (${targetPlatform}-${arch})`)
+  const ignoreModules = usePtyPrebuild ? ['node-pty'] : []
+  const libc = targetPlatform === 'linux' && !process.report.getReport().header.glibcVersionRuntime ? 'musl' : 'glibc'
+  // SQLite 13 and serialport 13 ship ABI-stable Node-API binaries. Their vendor
+  // filenames are not recognized by electron-rebuild's prebuildify detection.
+  for (const name of ['better-sqlite3', '@serialport/bindings-cpp']) {
+    const moduleDirectory = dirname(require.resolve(`${name}/package.json`))
+    if (hasPortablePrebuild(name, moduleDirectory, targetPlatform, arch, libc)) {
+      ignoreModules.push(name)
+      console.log(`${name}: using bundled Node-API prebuilds (${targetPlatform}-${arch})`)
+    }
+  }
   ensurePtyHelpersExecutable(ptyDirectory, targetPlatform, arch)
   await rebuild({
     buildPath: appDir,
@@ -41,7 +67,7 @@ export async function rebuildNativeDependencies({ appDir, electronVersion, platf
     platform: targetPlatform,
     arch,
     mode: 'sequential',
-    ignoreModules: usePtyPrebuild ? ['node-pty'] : []
+    ignoreModules
   })
   ensurePtyHelpersExecutable(ptyDirectory, targetPlatform, arch)
 }

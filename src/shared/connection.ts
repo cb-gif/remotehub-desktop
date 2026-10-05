@@ -52,6 +52,14 @@ export function parseConnectionExport(text: string): ConnectionExport {
   }
 }
 
+// Imported metadata is untrusted. A stored secret belongs to its original
+// endpoint and authentication settings, not just to an exported asset ID.
+export function canRetainImportedCredential(previous: Connection | undefined, incoming: ConnectionInput): boolean {
+  if (!previous?.credentialId) return false
+  const identity = ['type', 'host', 'port', 'username', 'authType', 'databaseType', 'database', 'databaseSslMode', 'sshTunnelId'] as const
+  return identity.every((key) => previous[key] === incoming[key])
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Connection JSON format is invalid')
   return value as Record<string, unknown>

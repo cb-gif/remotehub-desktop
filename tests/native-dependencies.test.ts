@@ -2,9 +2,31 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { ensurePtyHelpersExecutable, hasPtyPrebuild } from '../scripts/native-dependencies.mjs'
+import { ensurePtyHelpersExecutable, hasPortablePrebuild, hasPtyPrebuild } from '../scripts/native-dependencies.mjs'
 
 describe('node-pty release prebuild selection', () => {
+  it('selects portable SQLite and serial bindings for the target OS, architecture and libc', () => {
+    const root = resolve(tmpdir())
+    const directory = mkdtempSync(join(root, 'remotehub-prebuild-test-'))
+    try {
+      mkdirSync(join(directory, 'prebuilds', 'linux-arm64'), { recursive: true })
+      mkdirSync(join(directory, 'prebuilds', 'darwin-x64+arm64'), { recursive: true })
+      writeFileSync(join(directory, 'prebuilds', 'linuxmusl-arm64.node'), '')
+      writeFileSync(join(directory, 'prebuilds', 'linux-arm64', '@serialport+bindings-cpp.armv8.glibc.node'), '')
+      writeFileSync(join(directory, 'prebuilds', 'darwin-x64+arm64', '@serialport+bindings-cpp.node'), '')
+      expect(hasPortablePrebuild('better-sqlite3', directory, 'linux', 'arm64', 'musl')).toBe(true)
+      expect(hasPortablePrebuild('better-sqlite3', directory, 'linux', 'arm64', 'glibc')).toBe(false)
+      expect(hasPortablePrebuild('better-sqlite3', directory, 'linux', 'x64', 'musl')).toBe(false)
+      expect(hasPortablePrebuild('@serialport/bindings-cpp', directory, 'linux', 'arm64', 'glibc')).toBe(true)
+      expect(hasPortablePrebuild('@serialport/bindings-cpp', directory, 'linux', 'arm64', 'musl')).toBe(false)
+      expect(hasPortablePrebuild('@serialport/bindings-cpp', directory, 'darwin', 'x64')).toBe(true)
+      expect(hasPortablePrebuild('@serialport/bindings-cpp', directory, 'darwin', 'arm64')).toBe(true)
+      expect(hasPortablePrebuild('@serialport/bindings-cpp', directory, 'win32', 'x64')).toBe(false)
+    } finally {
+      if (dirname(directory) !== root || !directory.startsWith(join(root, 'remotehub-prebuild-test-'))) throw new Error('Unsafe test cleanup path')
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
   it('restores execute permissions on macOS helpers before packaging', () => {
     const root = resolve('node_modules/node-pty')
     const helper = join(root, 'prebuilds/darwin-arm64/spawn-helper')

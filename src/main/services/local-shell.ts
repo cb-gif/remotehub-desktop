@@ -10,6 +10,7 @@ import { initialTerminalInput } from '../../shared/terminal-input'
 import type { Connection } from '../../shared/types'
 import { appError, type StorageService } from './storage'
 import { queryCodexUsage } from './codex'
+import { codexCommand } from './codex-command'
 
 type LocalShellSession = { process: IPty; cwd: string }
 
@@ -62,14 +63,17 @@ export class LocalShellService {
     const { cwd } = this.getSession(sessionId)
     try {
       return await queryCodexUsage((ready, fail) => {
-        const child = spawnProcess('codex app-server', { cwd, env: { ...process.env, NO_COLOR: '1' }, shell: true, windowsHide: true })
+        const command = codexCommand(cwd)
+        const child = spawnProcess(command.file, command.args, { cwd: command.cwd, env: { ...command.env, NO_COLOR: '1' }, shell: false, windowsHide: true, windowsVerbatimArguments: command.windowsVerbatimArguments })
         child.once('error', fail)
+        child.stdin.on('error', fail)
+        child.stderr.resume()
         ready({
           onData: (listener) => child.stdout.on('data', listener),
           onError: (listener) => child.on('error', listener),
           onClose: (listener) => child.on('close', listener),
           write: (data) => child.stdin.write(data),
-          close: () => child.stdin.end()
+          close: () => { child.stdin.end(); child.kill() }
         })
       })
     } catch (error) {

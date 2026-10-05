@@ -22,6 +22,11 @@ export async function runPackagedSmokeTest(window: BrowserWindow, directory: str
     if (location.protocol !== 'file:') throw new Error('Renderer must load offline');
     if (!document.querySelector('.workspace-shell')) throw new Error('Workspace did not render');
     if (typeof window.require !== 'undefined') throw new Error('Node integration exposed');
+    const probe = document.createElement('script');
+    probe.textContent = 'window.__remotehubInlineScriptExecuted = true';
+    document.head.append(probe);
+    probe.remove();
+    if (window.__remotehubInlineScriptExecuted) throw new Error('Content security policy allowed inline script');
     const info = await window.api.app.getInfo();
     const group = await window.api.groups.save('Packaged smoke');
     const connection = await window.api.connections.save({connection:{name:'Smoke SQLite',type:'database',databaseType:'sqlite',host:${JSON.stringify(filename)},port:1,groupId:group.id}});
@@ -30,7 +35,7 @@ export async function runPackagedSmokeTest(window: BrowserWindow, directory: str
       const result = await window.api.database.query(session.sessionId, {sql:'SELECT value FROM sample',page:0,pageSize:200});
       if (result.rows?.[0]?.[0] !== '{"release":true,"nested":[1,2]}') throw new Error('SQLite IPC query failed');
     } finally { await window.api.database.disconnect(session.sessionId); }
-    return {ok:true,version:info.version,platform:info.platform,offline:true,preload:true,sqlite:true,serialBinding:true,pty:true,appIcon:true};
+    return {ok:true,version:info.version,platform:info.platform,offline:true,preload:true,csp:true,sqlite:true,serialBinding:true,pty:true,appIcon:true};
   })()`)
   return report as Record<string, unknown>
 }

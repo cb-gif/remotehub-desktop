@@ -10,6 +10,7 @@ export type SshConnectResult = { sessionId: string; trustRequired?: false } | { 
 export interface SshDataEvent {
   sessionId: string
   data: string
+  sequence?: number
 }
 
 export interface SshStatusEvent {

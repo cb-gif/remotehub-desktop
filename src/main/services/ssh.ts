@@ -8,6 +8,7 @@ import { CredentialService } from './credentials'
 import { fingerprintHostKey, hostKeyState } from './host-key'
 import { appError, StorageService } from './storage'
 import { queryCodexUsage } from './codex'
+import { SshOutput } from './ssh-output'
 
 type EventSink = (channel: 'ssh:data' | 'ssh:status', payload: SshDataEvent | SshStatusEvent) => void
 
@@ -16,6 +17,8 @@ type SshStreamLike = {
   write(data: string): boolean
   setWindow(rows: number, cols: number, height: number, width: number): void
   close(): void
+  pause(): void
+  resume(): void
 }
 
 type SshClientLike = {
@@ -42,6 +45,8 @@ type SshSession = {
   stream?: SshStreamLike
   temporaryPassword?: string
   target?: string
+  output?: SshOutput
+  cancelConnect?: () => void
 }
 
 const SERVER_STATUS_COMMAND = String.raw`
@@ -75,20 +80,26 @@ export class SshService {
 
   constructor(private readonly storage: StorageService, private readonly credentials: CredentialService, private readonly send: EventSink) {}
 
-  async connect(connection: Connection, options?: SshPasswordOptions): Promise<SshConnectResult> {
+  async connect(connection: Connection, options?: SshPasswordOptions, requestedSessionId?: string): Promise<SshConnectResult> {
     if (connection.type !== 'ssh') throw appError('SSH_CONNECTION_INVALID', 'Only SSH connections can open a terminal')
     if (!connection.username?.trim()) throw appError('SSH_USERNAME_REQUIRED', 'SSH 用户名不能为空')
     const credential = options?.password ?? this.credentials.get(connection.credentialId)
     if (!credential) throw appError('CREDENTIAL_MISSING', 'Save a password or private key before connecting')
 
+    const sessionId = requestedSessionId ?? randomUUID()
+    if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(sessionId) || this.sessions.has(sessionId)) throw appError('SSH_SESSION_INVALID', 'SSH session identifier is invalid or already in use')
     const client = this.createClient()
-    const sessionId = randomUUID()
     const session: SshSession = { id: sessionId, connectionId: connection.id, client }
     this.sessions.set(sessionId, session)
     this.emitStatus({ sessionId, status: 'connecting' })
 
     return new Promise((resolve, reject) => {
       let settled = false
+      session.cancelConnect = () => {
+        if (settled) return
+        settled = true
+        reject(appError('SSH_CONNECTION_CLOSED', 'SSH connection was closed'))
+      }
       let receivedHostKey: string | undefined
       const fail = (error: unknown): void => {
         if (!this.sessions.has(sessionId)) return
@@ -110,10 +121,13 @@ export class SshService {
       }
 
       client.on('ready', () => {
+        if (!this.sessions.has(sessionId)) return
         client.shell({ term: 'xterm-256color', cols: 120, rows: 32 }, (error, stream) => {
+          if (!this.sessions.has(sessionId)) { stream?.close(); return }
           if (error) return fail(error)
           session.stream = stream
-          stream.on('data', (chunk: unknown) => this.emitData({ sessionId, data: Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk) }))
+          session.output = new SshOutput((data, sequence) => this.emitData({ sessionId, data, sequence }), () => stream.pause(), () => stream.resume())
+          stream.on('data', (chunk: unknown) => session.output?.push(chunk))
           stream.on('error', fail)
           stream.on('close', () => this.closeSession(sessionId, true))
           stream.on('end', () => this.closeSession(sessionId, true))
@@ -189,6 +203,11 @@ export class SshService {
     const session = this.sessions.get(sessionId)
     if (!session?.stream) throw appError('SSH_SESSION_NOT_FOUND', 'SSH session is not available')
     session.stream.write(data)
+  }
+
+  acknowledgeOutput(sessionId: string, sequence: number): void {
+    if (typeof sessionId !== 'string' || sessionId.length > 100 || !Number.isSafeInteger(sequence) || sequence < 1) throw appError('SSH_SESSION_INVALID', 'SSH output acknowledgement is invalid')
+    this.sessions.get(sessionId)?.output?.acknowledge(sequence)
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
@@ -280,6 +299,8 @@ export class SshService {
     const session = this.sessions.get(sessionId)
     if (!session) return
     this.sessions.delete(sessionId)
+    session.cancelConnect?.()
+    session.output?.finish()
     try { session.stream?.close() } catch { /* best effort */ }
     try { session.client.end() } catch { /* best effort */ }
     if (notify) this.emitStatus({ sessionId, status: 'closed' })
