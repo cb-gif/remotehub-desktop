@@ -42,7 +42,7 @@ node-pty 1.1.0 的 macOS 预编译辅助程序存在缺少执行位的上游打�
 
 首版未配置付费签名证书。Windows 未签名，macOS 未使用 Developer ID 签名/公证（Apple Silicon 构建工具可能使用 ad-hoc 签名）；不要把它们描述为已签名稳定版。以后签名密钥只能放 GitHub Secrets，不能提交仓库。
 
-beta.10 已升级至 Electron 44.4.5，并适配原生模块与剪贴板接口。Linux 原生依赖默认使用系统 Clang，以兼容新版 V8 头文件；源码构建需安装 `clang`（例如 Ubuntu 的 `sudo apt install clang build-essential`），显式设置的 `CC` / `CXX` 会保留。各平台继续执行打包后离线启动检查。没有自动更新服务，升级需手动下载。
+beta.10 已升级至 Electron 44.4.5，并适配原生模块与剪贴板接口。Linux 原生依赖默认使用系统 Clang，以兼容新版 V8 头文件；需要 Clang 15 或更高版本与 C++20 标准库。例如 Ubuntu 22.04 安装 `clang-15 build-essential` 后使用 `CC=clang-15 CXX=clang++-15 npm ci`。显式设置的 `CC` / `CXX` 会保留，发布流水线使用预装的 Clang 15。各平台继续执行打包后离线启动检查。没有自动更新服务，升级需手动下载。
 
 ## 发布验收清单
 
